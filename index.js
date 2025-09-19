@@ -4,18 +4,10 @@
       var WaveFile = window.wavefile.WaveFile;
     }
     const terserOptions = {
-      // Top-level options
-      toplevel: true, // Crucial for best size reduction
-      module: true, // Treat as ES Module for better optimization
-
-      // Compression options
       compress: {
-        drop_console: true, // Remove console.* statements
-        passes: 2, // Run compressor twice for better results
+        passes: 2,
       },
-
-      // Mangling options (variable/function renaming)
-      mangle: true, // Enable all mangling
+      mangle: true,
     };
     function debugDiv(text) {
       var div = document.createElement("div");
