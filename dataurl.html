@@ -1,0 +1,24 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>
+		
+		</title>
+	</head>
+	
+	<body>
+		<input type="file" id="file"><br>
+		<input id="txt" type="text">
+		<script>
+			var fs = document.getElementById("file");
+			var txt = document.getElementById("txt");
+			fs.onchange = function () {
+				var reader = new FileReader();
+				reader.onload = function () {
+					txt.value = reader.result;
+				};
+				reader.readAsDataURL(fs.files[0]);
+			};
+		</script>
+	</body>
+</html>

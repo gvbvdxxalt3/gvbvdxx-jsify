@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>JSIfy|By Gvbvdxx| Scratch To Javascript</title>
+  </head>
+  <body style="font-family: arial">
+    <style>
+      /*SansSerif:NotoSans-Medium.ttf
+        Serif:SourceSerifPro-Regular.otf
+        Handwriting:handlee-regular.ttf
+        Marker:Knewave.ttf
+        Curly:Griffy-Regular.ttf
+        Pixel:Grand9K-Pixel.ttf
+        Scratch:Scratch.ttf
+        PixelAlt:slkscr.ttf
+      */
+      @font-face {
+        font-family: "SansSerif";
+        src: url("fonts/NotoSans-Medium");
+      }
+      @font-face {
+        font-family: "Serif";
+        src: url("fonts/SourceSerifPro-Regular.otf");
+      }
+      @font-face {
+        font-family: "Handwriting";
+        src: url("fonts/handlee-regular.ttf");
+      }
+      @font-face {
+        font-family: "Marker";
+        src: url("fonts/Knewave.ttf");
+      }
+      @font-face {
+        font-family: "Curly";
+        src: url("fonts/Griffy-Regular.ttf");
+      }
+      @font-face {
+        font-family: "Pixel";
+        src: url("fonts/Grand9K-Pixel.ttf");
+      }
+      @font-face {
+        font-family: "Scratch";
+        src: url("fonts/Scratch.ttf");
+      }
+      .centerMiddleOfScreen {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: fit-content;
+        height: fit-content;
+      }
+      button:hover {
+        cursor: pointer;
+      }
+      input[type="file"]:hover {
+        cursor: pointer;
+      }
+      [hidden] {
+        display: none;
+      }
+      .dialogBase {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        padding: 20px;
+        box-shaddow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        background-color: #fff;
+        border-radius: 8px;
+        z-index: 1000;
+        width: fit-content;
+        height: fit-content;
+      }
+      .dialogButton {
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        width: fit-content;
+        height: fit-content;
+      }
+      .dialogButton:hover {
+        background-color: #4c6ef5;
+      }
+      .dialogButtonSmall {
+        padding: 5px 15px;
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        font-size: 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        width: fit-content;
+        height: fit-content;
+      }
+      .dialogButtonSmall:hover {
+        background-color: #4c6ef5;
+      }
+      .blueButton {
+        padding: 5px 15px;
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        font-size: 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        width: fit-content;
+        height: fit-content;
+        margin-top: 2px;
+        margin-bottom: 2px;
+        margin-left: 2px;
+        margin-right: 2px;
+      }
+      .blueButton:hover {
+        background-color: #4c6ef5;
+      }
+      .dialogTextInput {
+        background: #fff;
+        color: #343a40;
+        border-style: solid;
+        border-width: 2px;
+        border-color: #495057;
+      }
+      .dialogBackground {
+        background-color: black;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 999;
+        opacity: 0.5;
+        width: 100vw;
+        height: 100vh;
+      }
+      .divSeperator {
+        width: 100%;
+        margin-top: 5px;
+        margin-bottom: 5px;
+        border-bottom-style: dotted;
+        border-bottom-color: black;
+        border-bottom-width: 2px;
+      }
+    </style>
+
+    <div id="loadarea" style="justify-content: center; text-align: center">
+      <img src="logo.svg" style="width: 400px" />
+      <h3>JSIfy - Scratch to JavaScript.</h3>
+      <br />
+      <b>Low quality SVG (Maybe less CPU usage?): </b
+      ><input type="checkbox" id="lowQualitySVG" />
+      <br />
+      <button id="loadProjectButton" class="blueButton">
+        Load Scratch Project from file</button
+      ><br />
+      <button id="debugStepper" class="blueButton" hidden>
+        Debug - Enable Stepper
+      </button>
+      <button id="configureCloudButton" class="blueButton">
+        Cloud Options
+      </button>
+      <button id="configureOtherButton" class="blueButton">
+        Other Options
+      </button>
+      <br />
+      <button
+        onclick="document.getElementById('demoProjectsDialog').hidden = false;"
+        class="blueButton"
+      >
+        Demo projects
+      </button>
+      <br />
+      <b style="color: #c7a600"> WARNING: </b>
+      <span
+        >This JavaScript compiler is not completley on Scratch's source code.
+        Its only used for some things like distance to, and the move steps
+        block. This means there can be inaccuracy in the compiler and some
+        scratch projects can run very weirdly (or just straight up crash/freeze)
+        sometimes. Some blocks like "touching color (color)?" aren't supported
+        yet, and are dummy blocks that return static values (such as constant
+        false or true). Sensing collision, text bubbles, and other things (That
+        i don't really want to spend time on) may be based on code from ChatGPT,
+        which was actually handy!</span
+      >
+    </div>
+    <div id="cloudDialog" hidden>
+      <div class="dialogBackground"></div>
+      <div class="dialogBase">
+        <b>Cloud server configuration</b>
+        <div class="divSeperator"></div>
+        <span>Use cloud server? (Checkbox)</span
+        ><input
+          type="checkbox"
+          id="cloudEnabledCheck"
+          class="dialogTextInput"
+        /><br />
+        <span>Server: </span
+        ><input
+          type="text"
+          id="cloudServerInput"
+          class="dialogTextInput"
+          value="ws://localhost:8080"
+        /><br />
+        <!-- ws://localhost:8080 is for testing the locally on my computer, or yours or whatever, set it to that to connect to your computer for testing the server or debugging and such. -->
+        <span>Variable Room ID: </span
+        ><input
+          type="number"
+          min="0"
+          max="999999999999"
+          id="cloudRoomInput"
+          class="dialogTextInput"
+        /><br />
+        <span
+          >Note that cloud connections won't actually save variables forever.
+          This is only used for compatibility within multiplayer cloud games.
+          Unlike scratch, cloud variables are extra fast in JSIfy, meaning that
+          it might be less accurate to scratch. Also there is no cloud variable
+          size limit or such, meaning the server can possibly overload from
+          large cloud variables.</span
+        >
+        <div class="divSeperator"></div>
+        <span
+          >Use the "Copy shared URL" button to share your cloud connection and
+          be able to play cloud projects toghether on JSIfy!</span
+        >
+        <span
+          >You can also type it in manually, but make sure your server is both
+          the same, otherwise it would not work.</span
+        >
+        <div class="divSeperator"></div>
+        <div class="dialogButtonSmall" id="closeCloudDialog">Close</div>
+        <div class="dialogButtonSmall" id="copyCloudURL">Copy shared URL</div>
+      </div>
+    </div>
+
+    <div id="demoProjectsDialog" hidden>
+      <div class="dialogBackground"></div>
+      <div
+        class="dialogBase"
+        style="max-width: 600px; max-height: 380px; overflow: auto"
+      >
+        <b>Demo Projects</b>
+        <div class="divSeperator"></div>
+
+        <div id="demoProjectContainer">
+          <!-- Projects added from one of the scripts at the bottom -->
+        </div>
+
+        <div class="divSeperator"></div>
+        <button
+          class="dialogButtonSmall"
+          onclick="document.getElementById('demoProjectsDialog').hidden = true;"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+
+    <div id="cloudNoticeDialog" hidden>
+      <div class="dialogBackground"></div>
+      <div
+        class="dialogBase"
+        style="max-width: 600px; max-height: 380px; overflow: auto"
+      >
+        <b>Cloud notice</b>
+        <div class="divSeperator"></div>
+        <span>
+          For this project to take full functionality, you need to connect it to
+          a cloud server.<br />
+          To do that, click "Close" then click "Cloud Options", then check "Use
+          Cloud Server" and then that should be it for enabling it.<br />
+          You must click "Copy shared URL" and share the link with friends, from
+          there you can now play the game with your friends!<br />
+        </span>
+        <div class="divSeperator"></div>
+        <button
+          class="dialogButtonSmall"
+          onclick="document.getElementById('cloudNoticeDialog').hidden = true;"
+        >
+          Close
+        </button>
+        <button
+          class="dialogButtonSmall"
+          id="continueLoadingCloudProjectButton"
+        >
+          Continue loading project anyways
+        </button>
+      </div>
+    </div>
+
+    <div id="buggyProjectDialog" hidden>
+      <div class="dialogBackground"></div>
+      <div
+        class="dialogBase"
+        style="max-width: 600px; max-height: 380px; overflow: auto"
+      >
+        <b>This project is buggy!</b>
+        <div class="divSeperator"></div>
+        <span>
+          This project is not completley compatible and might run into bugs or
+          things that might not be intended to happen. <br />
+          JSIfy is not 100% accurate to Scratch 3.0 and may never get that close
+          to being that accurate. <br />
+        </span>
+        <div class="divSeperator"></div>
+        <button
+          class="dialogButtonSmall"
+          onclick="document.getElementById('buggyProjectDialog').hidden = true;"
+        >
+          Close
+        </button>
+        <button
+          class="dialogButtonSmall"
+          id="continueLoadingBuggyProjectButton"
+        >
+          Continue loading project anyways
+        </button>
+      </div>
+    </div>
+
+    <div id="projectConfigDialog" hidden>
+      <div class="dialogBackground"></div>
+      <div class="dialogBase">
+        <b>Project Configuration</b>
+        <div class="divSeperator"></div>
+        <span>Username: </span
+        ><input
+          type="text"
+          id="projectConfigDialogUsername"
+          class="dialogTextInput"
+        /><br />
+        <span
+          >Add a milisecond broadcast sending delay (fixes more projects!): </span
+        ><input
+          type="checkbox"
+          id="projectConfigDialogBroadcastDelay"
+          class="dialogTextInput"
+        /><br />
+        <span>More effects (Ghost would not be effected, might be laggy): </span
+        ><input
+          type="checkbox"
+          id="projectConfigUseCPURenderedEffects"
+          class="dialogTextInput"
+        /><br />
+        <div class="divSeperator"></div>
+        <span
+          >More effects would render svg images to png when a effect is applied,
+          currently their is one effect, brightness. Effects might be CPU
+          intensive and would slow down your computer sometimes, avoid turning
+          on for effect intensive games. Your username is used by the loaded
+          project, and might be shared with the cloud server.</span
+        >
+        <div class="divSeperator"></div>
+        <div class="dialogButtonSmall" id="closeProjectConfigDialog">Close</div>
+      </div>
+    </div>
+    <div id="cloudConnecting" hidden>
+      <div class="dialogBackground"></div>
+      <div class="dialogBase">
+        <b
+          >JSIfy is currently connecting to the cloud variable server, please
+          wait...</b
+        >
+      </div>
+    </div>
+    <div id="loadingProjectFile" hidden>
+      <div class="dialogBackground"></div>
+      <div class="dialogBase">
+        <b>Downloading or loading project SB3/File please wait...</b>
+      </div>
+    </div>
+
+    <div class="centerMiddleOfScreen">
+      <textarea
+        id="debugConsole"
+        style="display: none; position: fixed; top: 0; left: 0; width: 300px"
+      >
+      </textarea>
+      <style>
+        .center480PX {
+          left: calc(calc(calc(100vw / 2) - 240px) + 0px);
+        }
+        .projectArea {
+          position: relative;
+          width: 480px;
+        }
+      </style>
+      <div
+        id="fullScreenProjectAreaBG"
+        hidden
+        style="
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: white;
+          z-index: 100;
+        "
+      ></div>
+      <div id="loadingScreen" hidden>
+        <b>Your project is being loaded, please wait!</b>
+        <div
+          style="
+            width: 480px;
+            height: 20px;
+            background: #c2c2c2;
+            border-style: solid;
+            border-width: 3px;
+            border-color: black;
+            border-radius: 10px;
+          "
+          id="progress"
+        >
+          <div
+            style="
+              width: 0px;
+              height: 20px;
+              background: #ffd500;
+              border-radius: 10px;
+            "
+          ></div>
+        </div>
+        <div
+          id="logs"
+          style="
+            width: 480px;
+            height: 250px;
+            resize: none;
+            background: white;
+            border-width: 3px;
+            border-style: solid;
+            border-color: grey;
+            color: black;
+            overflow: auto;
+          "
+        ></div>
+      </div>
+    </div>
+
+    <div id="projectArea" class="projectArea center480px" hidden>
+      <button id="start" style="height: 20px">Start</button>
+      <button id="stop" style="height: 20px">Stop</button>
+      <button id="fullscreenbutton" style="height: 20px">
+        Toggle Fullscreen
+      </button>
+      <div></div>
+      <canvas
+        id="scratchCanvas"
+        width="480"
+        height="360"
+        style="
+          background: white;
+          border-width: 1px;
+          border-style: solid;
+          border-color: grey;
+          image-rendering: pixelated;
+        "
+      ></canvas>
+    </div>
+
+    <script src="scratch-adpcm.js?n=1"></script>
+    <script src="fonturis.js?n=1"></script>
+    <script src="wavefile.js?n=1"></script>
+    <script src="wav-decoder.js?n=1"></script>
+    <script src="collisionhandler.js?n=1"></script>
+    <script src="pixi.min.js?n=1"></script>
+    <script src="renderer-pixli.js?n=1"></script>
+    <script src="jszip.js?n=1"></script>
+    <script src="index.js?n=1"></script>
+
+    <script>
+      (function () {
+        //Add demo projects here.
+        var demoProjects = [
+          {
+            name: "Paper Minecraft",
+            sb3URL:
+              "https://cdn.glitch.global/542c66c7-4ded-4e56-8e02-9b54e54cda6e/PaperMinecraft.sb3?v=1735504174076",
+            image: "project-images/PaperMinecraft.png",
+            usesCloud: false,
+            largeProject: false,
+            isBuggy: false,
+            owner: "griffpatch",
+            //Works great, exept that its inventory system is quite glitchy, its fine with creative mode. (Apperantly message delay fixes it, and new update fixed it as well.)
+          },
+          {
+            name: "GSE Sonic Cloud",
+            sb3URL:
+              "https://randomrants-filestore-api.glitch.me/file/1591/CDGve9KSJUAPcCkjOL99/GSESonicCloud.sb3", //Random Rants is a unmoderated chat - don't tell scratch team! (Used because it was too large to be saved on glitch.me directly)
+            image: "project-images/GSESonicCloud.png",
+            usesCloud: true,
+            largeProject: true,
+            isBuggy: false,
+            owner: "gvbvdxx",
+            //Works excellent, as if it was made for JSIfy, not fully tested, but most of the major parts work.
+          },
+          {
+            name: "Getting Over It",
+            sb3URL:
+              "https://cdn.glitch.me/542c66c7-4ded-4e56-8e02-9b54e54cda6e/GettingOverIt.sb3?v=1735504195843",
+            image: "project-images/GettingOverIt.png",
+            usesCloud: false,
+            largeProject: false,
+            isBuggy: true,
+            owner: "griffpatch",
+            //With very glitchy bugs, and requires the message delay now, its very buggy, but can still be played. Scratch Cat's body is misaligned.
+          },
+          {
+            name: "Super Mario 3.0 World",
+            sb3URL:
+              "https://cdn.glitch.me/542c66c7-4ded-4e56-8e02-9b54e54cda6e/SuperMario3World.sb3?v=1735504226816",
+            image: "project-images/SuperMario3World.png",
+            usesCloud: false,
+            largeProject: false,
+            isBuggy: false,
+            owner: "brad-games",
+            //Works perfectly, was one of the games to be mostly tested on JSIfy. (I finished the game twice on JSIfy! Confirmed working!)
+          },
+        ];
+
+        //Only edit below if you want to change the behavior of the projects.
+
+        var demoProjectsDialog = document.getElementById("demoProjectsDialog");
+        var demoProjectContainer = document.getElementById(
+          "demoProjectContainer"
+        );
+        var cloudNoticeDialog = document.getElementById("cloudNoticeDialog");
+        var continueLoadingCloudProjectButton = document.getElementById(
+          "continueLoadingCloudProjectButton"
+        );
+        var buggyProjectDialog = document.getElementById("buggyProjectDialog");
+        var continueLoadingBuggyProjectButton = document.getElementById(
+          "continueLoadingBuggyProjectButton"
+        );
+
+        demoProjects.forEach((project) => {
+          //Style and visualize the button first.
+
+          var button = document.createElement("button");
+          button.className = "dialogButton"; //Styles handled by style element.
+
+          var img = document.createElement("img");
+          button.append(img); //Add to the buttons contents.
+          img.src = project.image; //Tell the image where the projects image is at.
+          if (!project.image) {
+            //No image, use the JSIfy logo instead.
+            img.src = "logo.svg";
+          }
+          img.style.height = "180px"; //Make the image 180 pixels tall when shown on screen.
+
+          //Seperate the image and text.
+          button.append(document.createElement("br"));
+
+          var span = document.createElement("span");
+          button.append(span);
+          span.textContent = project.name;
+
+          //If has a owner username attached to it as well, add it.
+
+          if (project.owner) {
+            button.append(document.createElement("br"));
+
+            var b = document.createElement("b");
+            button.append(b);
+            b.textContent = "Created by " + project.owner;
+          }
+
+          //Then tell the button to do something next.
+
+          button.addEventListener("click", () => {
+            demoProjectsDialog.hidden = true;
+
+            function checkBuggyDialog() {
+              if (project.isBuggy) {
+                if (window.JSIfyCloudEngine.isCloudEnabled()) {
+                  window.loadProjectURL(project.sb3URL);
+                } else {
+                  buggyProjectDialog.hidden = false;
+                  continueLoadingBuggyProjectButton.onclick = function () {
+                    buggyProjectDialog.hidden = true;
+                    window.loadProjectURL(project.sb3URL);
+                  };
+                }
+              } else {
+                window.loadProjectURL(project.sb3URL);
+              }
+            }
+
+            if (project.usesCloud) {
+              if (window.JSIfyCloudEngine.isCloudEnabled()) {
+                checkBuggyDialog();
+              } else {
+                cloudNoticeDialog.hidden = false;
+                continueLoadingCloudProjectButton.onclick = function () {
+                  cloudNoticeDialog.hidden = true;
+                  checkBuggyDialog();
+                };
+              }
+            } else {
+              checkBuggyDialog();
+            }
+          });
+
+          //Add the button to the div container.
+
+          demoProjectContainer.append(button);
+        });
+      })();
+    </script>
+
+    <script>
+      (async function () {
+        var JSIfy = window.JSIfy;
+
+        var projectConfigDialog = document.getElementById(
+          "projectConfigDialog"
+        );
+        var configureOtherButton = document.getElementById(
+          "configureOtherButton"
+        );
+        var closeProjectConfigDialog = document.getElementById(
+          "closeProjectConfigDialog"
+        );
+
+        closeProjectConfigDialog.onclick = function () {
+          projectConfigDialog.hidden = true;
+        };
+        configureOtherButton.onclick = function () {
+          projectConfigDialog.hidden = false;
+        };
+
+        var defaultConfig = {
+          username: "gvbvdxx",
+          moreEffects: false,
+          messageSendDelay: true,
+        };
+
+        function getConfig() {
+          var stored = localStorage.getItem("projectConfig");
+          if (stored) {
+            try {
+              return JSON.parse(stored);
+            } catch (e) {
+              console.warn("Failed to parse project config. ", e);
+            }
+          }
+          return defaultConfig;
+        }
+
+        var projectConfig = getConfig();
+
+        function addAnyMissingValues(config, defConfig) {
+          //If one of the values is undefined/empty, we must fill it in with the default value.
+          //Assuming all missing values are undefined.
+
+          for (var key of Object.keys(defConfig)) {
+            if (typeof config[key] == "undefined") {
+              config[key] = defConfig[key];
+            }
+          }
+        }
+
+        addAnyMissingValues(projectConfig, defaultConfig);
+
+        function getOrigin() {
+          return new URL(window.location.href).origin;
+        }
+
+        function saveProjectConfig(config) {
+          JSIfy.setUsername(projectConfig.username);
+          JSIfy.moreEffects = projectConfig.moreEffects;
+          JSIfy.messageSendDelay = projectConfig.messageSendDelay;
+          localStorage.setItem("projectConfig", JSON.stringify(projectConfig));
+        }
+
+        var projectConfigUseCPURenderedEffects = document.getElementById(
+          "projectConfigUseCPURenderedEffects"
+        );
+        var projectConfigDialogUsername = document.getElementById(
+          "projectConfigDialogUsername"
+        );
+        var projectConfigDialogBroadcastDelay = document.getElementById(
+          "projectConfigDialogBroadcastDelay"
+        );
+
+        projectConfigDialogUsername.value = projectConfig.username;
+        projectConfigDialogUsername.onchange = function () {
+          projectConfig.username = projectConfigDialogUsername.value;
+          JSIfy.setUsername(projectConfig.username);
+          saveProjectConfig();
+        };
+
+        projectConfigUseCPURenderedEffects.checked = projectConfig.moreEffects;
+        projectConfigUseCPURenderedEffects.onchange = function () {
+          projectConfig.moreEffects =
+            projectConfigUseCPURenderedEffects.checked;
+          saveProjectConfig();
+        };
+
+        projectConfigDialogBroadcastDelay.checked =
+          projectConfig.messageSendDelay;
+        projectConfigDialogBroadcastDelay.onchange = function () {
+          projectConfig.messageSendDelay =
+            projectConfigDialogBroadcastDelay.checked;
+          saveProjectConfig();
+        };
+
+        saveProjectConfig();
+      })();
+    </script>
+
+    <script>
+      (function () {
+        var defaultCloudConfig = {
+          enabled: false,
+          server: "wss://gvbjsify-cloud.glitch.me",
+          roomID: Math.round(Math.random() * 100000),
+        };
+
+        function getCloudConfig() {
+          var stored = localStorage.getItem("cloudConfig");
+          if (stored) {
+            try {
+              return JSON.parse(stored);
+            } catch (e) {
+              console.warn("Failed to parse cloud config. ", e);
+            }
+          }
+          if (window.location.search) {
+            var param = new URLSearchParams(window.location.search);
+            if (param.get("server") && param.get("room")) {
+              return {
+                server: param.get("server"),
+                roomID: param.get("room"),
+                enabled: true /*Got to be enabled if from the url*/,
+              };
+            }
+          }
+          return defaultCloudConfig;
+        }
+
+        var cloudConfig = getCloudConfig();
+        var cloudStatus = "";
+
+        function getOrigin() {
+          return new URL(window.location.href).origin;
+        }
+
+        function generateConfigURL() {
+          var search =
+            "?server=" +
+            encodeURIComponent(cloudConfig.server) +
+            "&room=" +
+            encodeURIComponent(cloudConfig.roomID);
+          return getOrigin() + search;
+        }
+
+        function saveCloudConfig(config) {
+          localStorage.setItem("cloudConfig", JSON.stringify(cloudConfig));
+        }
+
+        var cloudDialog = document.getElementById("cloudDialog");
+
+        function addAnyMissingValues(config, defConfig) {
+          //If one of the values is undefined/empty, we must fill it in with the default value.
+          //Assuming all missing values are undefined.
+
+          for (var key of Object.keys(defConfig)) {
+            if (typeof config[key] == "undefined") {
+              config[key] = defConfig[key];
+            }
+          }
+        }
+
+        addAnyMissingValues(cloudConfig, defaultCloudConfig);
+
+        var configureCloudButton = document.getElementById(
+          "configureCloudButton"
+        );
+        var closeCloudDialog = document.getElementById("closeCloudDialog");
+
+        closeCloudDialog.onclick = function () {
+          cloudDialog.hidden = true;
+        };
+
+        configureCloudButton.onclick = function () {
+          cloudDialog.hidden = false;
+        };
+
+        var cloudServerInput = document.getElementById("cloudServerInput");
+
+        cloudServerInput.value = cloudConfig.server;
+        cloudServerInput.onchange = function () {
+          cloudConfig.server = cloudServerInput.value;
+          saveCloudConfig();
+        };
+
+        var cloudRoomInput = document.getElementById("cloudRoomInput");
+
+        cloudRoomInput.value = cloudConfig.roomID;
+        cloudRoomInput.onchange = function () {
+          var num = Number(cloudRoomInput.value);
+          if (num < 1) {
+            num = 1;
+          }
+          if (num > 999999999999) {
+            num = 999999999999;
+          }
+          cloudRoomInput.value = num;
+          cloudConfig.roomID = num;
+          saveCloudConfig();
+        };
+
+        var copyCloudURL = document.getElementById("copyCloudURL");
+        var copyCloudURLText = copyCloudURL.textContent;
+        copyCloudURL.onclick = function () {
+          navigator.clipboard.writeText(generateConfigURL());
+          copyCloudURL.textContent = "Copied!";
+          setTimeout(() => {
+            copyCloudURL.textContent = copyCloudURLText;
+          }, 1000);
+        };
+
+        var cloudEnabledCheck = document.getElementById("cloudEnabledCheck");
+
+        cloudEnabledCheck.checked = cloudConfig.enabled;
+        cloudEnabledCheck.onchange = function () {
+          cloudConfig.enabled = cloudEnabledCheck.checked;
+          saveCloudConfig();
+        };
+
+        var cloudOpen = false;
+        var cloudSocket = null;
+        var cloudConnectionEnabled = false; //Different from cloudConfig.enabled, used for disconnecting without reconnecting again.
+        var cloudVariables = {};
+
+        function handleCloudMessage(e) {
+          var json = JSON.parse(e.data);
+          if (json.command == "ready") {
+            cloudSocket.send(
+              JSON.stringify({
+                command: "changeID",
+                id: cloudConfig.roomID,
+              })
+            );
+          }
+          if (json.command == "update") {
+            cloudVariables[json.name] = json.value;
+          }
+        }
+
+        function connectToCloud(whenopen) {
+          var openedFirst = false;
+          function connect(u) {
+            if (cloudConnectionEnabled) {
+              cloudSocket = new WebSocket(u);
+              cloudSocket.onclose = function () {
+                cloudOpen = false;
+                connect(u);
+              };
+              cloudSocket.onopen = function () {
+                cloudOpen = true;
+                cloudConnecting.hidden = true;
+                if (!openedFirst) {
+                  if (whenopen) {
+                    whenopen();
+                  }
+                  openedFirst = true;
+                }
+              };
+              cloudSocket.onmessage = handleCloudMessage;
+            }
+          }
+          cloudConnectionEnabled = true;
+          cloudSocket = null;
+          cloudOpen = false;
+          connect(cloudConfig.server);
+          cloudConnecting.hidden = false;
+        }
+
+        function disconnectFromCloud() {
+          if (cloudSocket) {
+            cloudOpen = false;
+            cloudConnectionEnabled = false;
+            cloudSocket.close();
+            cloudSocket = null;
+          }
+        }
+
+        function getVariable(name) {
+          return cloudVariables[name];
+        }
+        function setVariable(name, value) {
+          if (cloudOpen) {
+            cloudSocket.send(
+              JSON.stringify({
+                command: "setVariable",
+                name: name,
+                value: value,
+              })
+            );
+          }
+          cloudVariables[name] = value;
+        }
+
+        window.JSIfyCloudEngine = {
+          connectToCloud: connectToCloud,
+          disconnectFromCloud: disconnectFromCloud,
+          isCloudEnabled: function () {
+            return cloudConfig.enabled;
+          },
+          getVariable: getVariable,
+          setVariable: setVariable,
+        };
+      })();
+    </script>
+
+    <script>
+      (async function () {
+        var debugStepper = document.getElementById("debugStepper");
+        var loadproj = document.createElement("input");
+        var loadarea = document.getElementById("loadarea");
+        var lowQualitySVG = document.getElementById("lowQualitySVG");
+        var progress = document.getElementById("progress");
+        var fullscreenbutton = document.getElementById("fullscreenbutton");
+        var start = document.getElementById("start");
+        var stop = document.getElementById("stop");
+        var logs = document.getElementById("logs");
+        var loadingScreen = document.getElementById("loadingScreen");
+        var cvs = document.getElementById("scratchCanvas");
+        var loadingProjectFile = document.getElementById("loadingProjectFile");
+        var renderer = JSIfy.renderer;
+
+        var loadProjectButton = document.getElementById("loadProjectButton");
+
+        loadproj.type = "file";
+        loadproj.accept = ".sb3";
+
+        loadProjectButton.onclick = function () {
+          loadproj.click();
+        };
+
+        setInterval(() => {
+          window.JSIfy.highQualitySVG = !lowQualitySVG.checked;
+        }, 1000 / 30);
+        var projectArea = document.getElementById("projectArea");
+        var fullScreenProjectAreaBG = document.getElementById(
+          "fullScreenProjectAreaBG"
+        );
+        async function startLoadingProject(arrayBuffer) {
+          loadarea.hidden = true;
+          loadingScreen.hidden = false;
+          await window.JSIfy.loadProject(arrayBuffer);
+          loadproj.hidden = true;
+          logs.textContent = ""; //So we don't lag out when the project is playing, unnessasary heavy text should be removed.
+          cvs.hidden = false;
+          start.hidden = false;
+          stop.hidden = false;
+          projectArea.hidden = false;
+          loadingScreen.hidden = true;
+        }
+        function waitForCloudThenLoad(arrayBuffer) {
+          loadarea.hidden = true;
+          loadingScreen.hidden = false;
+          if (window.JSIfyCloudEngine.isCloudEnabled()) {
+            window.JSIfyCloudEngine.connectToCloud(async function () {
+              startLoadingProject(arrayBuffer);
+            });
+          } else {
+            //No cloud enabled, just load the project instantly
+            startLoadingProject(arrayBuffer);
+          }
+        }
+        window.loadProjectURL = async function (url) {
+          loadingProjectFile.hidden = false;
+          var a = await fetch(url);
+          waitForCloudThenLoad(await a.arrayBuffer());
+          loadingProjectFile.hidden = true;
+        };
+        try {
+          window.JSIfy.onlog = function (...items) {
+            var log = "";
+            for (var item of items) {
+              if (typeof item == "object") {
+                log += JSON.stringify(item) + " ";
+              } else {
+                log += item + " ";
+              }
+            }
+            var container = document.createElement("div");
+            var span = document.createElement("span");
+            //container.append(document.createElement("br"));
+            var scrollToBottom =
+              logs.scrollTop + logs.offsetHeight >= logs.scrollHeight;
+            span.textContent = log;
+            container.append(log);
+            logs.append(container);
+            if (scrollToBottom) {
+              logs.scrollTo(0, logs.scrollHeight);
+            }
+          };
+          window.JSIfy.onprogress = function (value, max) {
+            var bar = progress.children[0];
+            var decimal = value / max;
+            var width = decimal * 480;
+            bar.style.width = width + "px";
+          };
+          debugStepper.onclick = function () {
+            debugStepper.hidden = true;
+            window.JSIfy.debugStepper = true;
+            document.body.append(window.JSIfy.debugDiv);
+          };
+          document.addEventListener("keydown", function (e) {
+            if (e.key == "Shift" && !window.JSIfy.debugStepper) {
+              debugStepper.hidden = false;
+            }
+            if (document.activeElement == document.body) {
+              window.JSIfy.keyInput(e.key, true);
+              e.preventDefault();
+            }
+          });
+          document.addEventListener("keyup", function (e) {
+            if (e.key == "Shift") {
+              debugStepper.hidden = true;
+            }
+            window.JSIfy.keyInput(e.key, false);
+            e.preventDefault();
+          });
+        } catch (e) {
+          window.alert(e);
+        }
+        var isFullScreen = false;
+        fullscreenbutton.onclick = function () {
+          isFullScreen = !isFullScreen;
+        };
+        var _lastScale = -1;
+        setInterval(() => {
+          if (isFullScreen) {
+            var scale = window.innerHeight / 360;
+            if (_lastScale !== scale) {
+              projectArea.style.position = "fixed";
+              projectArea.style.width = scale * 480 + "px";
+              projectArea.style.height = scale * 360 + "px";
+              projectArea.style.zIndex = "100";
+              projectArea.style.top = "0px";
+              projectArea.style.left =
+                "calc(calc(100vw / 2) - " + scale * 240 + "px)";
+              var w = scale * 480 - 30;
+              var h = scale * 360 - 30;
+              var canvasScale = h / 360;
+              cvs.width = canvasScale * 480;
+              cvs.height = canvasScale * 360;
+              renderer.scaleX = canvasScale;
+              renderer.scaleY = canvasScale;
+              fullScreenProjectAreaBG.hidden = false;
+              _lastScale = scale;
+            }
+          } else {
+            projectArea.removeAttribute("style");
+            fullScreenProjectAreaBG.hidden = true;
+            if (_lastScale != -1) {
+              cvs.width = 480;
+              cvs.height = 360;
+              renderer.scaleX = 1;
+              renderer.scaleY = 1;
+            }
+            _lastScale = -1;
+          }
+        }, 1000 / 30);
+        start.onclick = function () {
+          try {
+            window.JSIfy.greenFlag();
+          } catch (e) {
+            window.alert(e);
+          }
+        };
+        stop.onclick = function () {
+          try {
+            window.JSIfy.stopAll();
+          } catch (e) {
+            window.alert(e);
+          }
+        };
+        loadproj.onchange = function () {
+          if (loadproj.files[0]) {
+            var r = new FileReader();
+            loadingProjectFile.hidden = false;
+            r.onload = async function () {
+              try {
+                loadingProjectFile.hidden = true;
+                waitForCloudThenLoad(r.result);
+              } catch (e) {
+                window.alert(e);
+              }
+            };
+            r.readAsArrayBuffer(loadproj.files[0]);
+            loadproj.value = "";
+          }
+        };
+        window.JSIfy.cloudEngine = window.JSIfyCloudEngine;
+        setInterval(() => {
+          /*var cvs = document.getElementById("scratch");
+        var scale = window.innerHeight / 360;
+        if (!(renderer.scaleX == scale)) {
+          renderer.scaleX = scale;
+          renderer.scaleY = scale;
+
+          cvs.height = 360 * scale;
+          cvs.width = 600 * scale;
+          cvs.style.marginLeft = cvs.width / -2 + "px";
+          cvs.style.marginTop = cvs.height / -2 + "px";
+        }*/
+        }, 1);
+      })();
+    </script>
+
+    <script>
+      //console.log = function () {
+      //document.getElementById("debugConsole").value += Array.prototype.slice.call(arguments).join(' ') + "\n";
+      //};
+      //console.clear = function () {
+      //document.getElementById("debugConsole").value = "";
+      //};
+    </script>
+  </body>
+</html>
