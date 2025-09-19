@@ -1929,26 +1929,24 @@
           if (!sinfo) {
             return;
           }
-          setTimeout(() => {
-            var scripts = [];
-            for (var s of this.scriptRunInfo) {
-              if (!(s.id == sinfo.id)) {
-                scripts.push(s);
-              } else {
-                if (false) {
-                  for (var thread of s.customBlockThreads) {
-                    thread.running = false;
-                  }
-                  s.customBlockThreads = [];
+          var scripts = [];
+          for (var s of this.scriptRunInfo) {
+            if (!(s.id == sinfo.id)) {
+              scripts.push(s);
+            } else {
+              if (false) {
+                for (var thread of s.customBlockThreads) {
+                  thread.running = false;
                 }
                 s.customBlockThreads = [];
-                s.running = false;
-                s.messageThreadRemove();
-                window.JSIfy.RunningThreads -= 1;
               }
+              s.customBlockThreads = [];
+              s.running = false;
+              s.messageThreadRemove();
+              window.JSIfy.RunningThreads -= 1;
             }
-            this.scriptRunInfo = scripts;
-          }, 1);
+          }
+          this.scriptRunInfo = scripts;
         }
         addMessageThread(msg2, sinfo) {
           var t = this;
@@ -3332,11 +3330,60 @@
                   )}) - NumberValue(${getOperators(b.inputs.NUM2)}))`;
                 }
                 if (b.opcode == "operator_mathop") {
-                  //window.JSIfy.onlog(b.values);
-                  addedto += `mathop(("${b.fields.OPERATOR[0].toLowerCase()}"),(${getOperators(
-                    b.inputs.NUM
-                  )}))`;
-                }
+    const operator = b.fields.OPERATOR[0].toLowerCase();
+    const numCode = getOperators(b.inputs.NUM); // The code for the input number
+
+    let mathFuncCode;
+    
+    // NOTE: 'cast.toNumber()' is used to enforce Scratch's number coercion rules on the input!
+    const castedNumCode = `cast.toNumber(${numCode})`; 
+
+    switch (operator) {
+        case "abs":
+            mathFuncCode = `Math.abs(${castedNumCode})`;
+            break;
+        case "floor":
+            mathFuncCode = `Math.floor(${castedNumCode})`;
+            break;
+        case "sin":
+            mathFuncCode = `Math.sin((Math.PI * ${castedNumCode}) / 180).toFixed(10)`;
+            break;
+	case "cos":
+            mathFuncCode = `Math.cos((Math.PI * ${castedNumCode}) / 180).toFixed(10)`;
+            break;
+	case "cos":
+            mathFuncCode = `Math.cos((Math.PI * ${castedNumCode}) / 180).toFixed(10)`;
+            break;
+	case "tan":
+            mathFuncCode = `sprite.tan(${castedNumCode})`;
+            break;
+	case "asin":
+            mathFuncCode = `((Math.asin(${castedNumCode}) * 180) / Math.PI)`;
+            break;
+	case "acos":
+            mathFuncCode = `((Math.acos(${castedNumCode}) * 180) / Math.PI)`;
+            break;
+	case "atan":
+            mathFuncCode = `((Math.atan(${castedNumCode}) * 180) / Math.PI)`;
+            break;
+	case "ln":
+	    mathFuncCode = `Math.log(${castedNumCode})`;
+            break;
+	case "log":
+	    mathFuncCode = `Math.log(${castedNumCode}) / Math.LN10`;
+            break;
+	case "e ^":
+	    mathFuncCode = `Math.exp(${castedNumCode})`;
+            break;
+	case "10 ^":
+	    mathFuncCode = `Math.pow(10, ${castedNumCode})`;
+            break;
+        default:
+            mathFuncCode = `0`; 
+            break;
+    }
+    addedto += mathFuncCode;
+}
                 if (b.opcode == "operator_not") {
                   addedto += `booleanNot(${getOperators(
                     b.inputs.OPERAND,
@@ -4578,7 +4625,7 @@
         return (
           "(async function (sprite){\nsprite.runscript = true;\nvar warpenabled = false;\n" +
           generatedCode +
-          "\n})"
+          "\n})(sprite)"
         );
       },
       stopAllSounds: function () {
@@ -5037,7 +5084,7 @@
               "Generating JavaScript for sprite " + target.name + "..."
             );
             sprite.code = this.genCode(sprite, this.variables); //Generate the code from the scratch 3.0 project json.
-            try{
+	    try{
               var result = await Terser.minify(sprite.code, terserOptions);
               if (!result.error) {
                 sprite.code = result.code;
@@ -5052,7 +5099,7 @@
                   `Sprite code for ${sprite.name}:` + "\n" + sprite.code
                 );
               }
-              sprite.runfunct = eval(sprite.code); // Attempt to execute the sprite code
+              sprite.runfunct = eval("(async function (sprite){"+sprite.code+"})"); // Attempt to execute the sprite code
               sprite.runfunct(sprite);
               this.onlog("Successfully started code for " + target.name + "!");
             } catch (e) {
