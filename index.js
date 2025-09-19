@@ -5051,7 +5051,10 @@
             );
             sprite.code = this.genCode(sprite, this.variables); //Generate the code from the scratch 3.0 project json.
             try{
-              sprite.code = (await Terser.minify(sprite.code, terserOptions)).code;
+              var result = await Terser.minify(sprite.code, terserOptions);
+              if (!result.error) {
+                sprite.code = result.code;
+              }
             }catch(e){
               console.error(e);
               window.alert("Terser error: "+e);
