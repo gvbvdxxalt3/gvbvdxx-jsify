@@ -1,8 +1,22 @@
- (function () {
+(function () {
   try {
     if (window.wavefile) {
       var WaveFile = window.wavefile.WaveFile;
     }
+    const terserOptions = {
+      // Top-level options
+      toplevel: true, // Crucial for best size reduction
+      module: true, // Treat as ES Module for better optimization
+
+      // Compression options
+      compress: {
+        drop_console: true, // Remove console.* statements
+        passes: 2, // Run compressor twice for better results
+      },
+
+      // Mangling options (variable/function renaming)
+      mangle: true, // Enable all mangling
+    };
     function debugDiv(text) {
       var div = document.createElement("div");
       div.textContent = text;
@@ -2953,7 +2967,7 @@
               },
               id: i,
             });*/
-            setTimeout(a,1000/window.JSIfy.frameRate);
+            setTimeout(a, 1000 / window.JSIfy.frameRate);
           });
         },
         random: function (FROM, TO) {
@@ -3192,20 +3206,36 @@
           return false;
         }
       },
-      generateConstScript: function (refrence,functions) {
+      generateConstScript: function (refrence, functions) {
         var generated = "";
         for (var functname of functions) {
-          generated += `const ${functname.trim()} = ${refrence}.${functname.trim()}.bind(${refrence});` + "\n";
+          generated +=
+            `const ${functname.trim()} = ${refrence}.${functname.trim()}.bind(${refrence});` +
+            "\n";
         }
-        
+
         return generated;
       },
       genCode: function genCode(s, c) {
         var generatedCode = "";
-        generatedCode += window.JSIfy.generateConstScript("JSIfy", ("stopAllSounds, sendMessage, NumberValue, getMouseX, getMouseY, isKeyDown, getTimer, resetTimer, daysSince2000, getStage").split(","));
-        generatedCode += window.JSIfy.generateConstScript("JSIfy.proAPI", ("random").split(","));
-        generatedCode += window.JSIfy.generateConstScript("sprite", ("addMessageThread, makeScriptInfo, doErrorHandler, removeScriptInfo, addKeyPressedFunction, addClickFunction, addMessageFunction, deleteClone, say, goTo, wait, repeat, setX, setY, createCloneOf, setToFrontOrBack, clearEffects, goForwardBackLayers, saySecs, stopScripts, waitUntil, changeCostumeNumber, nextStageCostume, setCostume, setStageCostume, setSize, changeSize, glideTo, playSound, addToList, deleteOfList, deleteAllOfList, insertAtList, repeatUntil, findCustomBlock, changeEffectBy, askAndWait, setEffect, turnRight, turnLeft, addFlagFunction, replaceItemOfList, moveSteps, forever, setXY, setRotationStyle, changeVolumeBy, setVolume, pointTowards, glideToXY, getListString, setVariable, getVariable, changeVariable, changeX, changeY, setDirection, distanceTo, getTimeCurrent, mathop, booleanNot, booleanAnd, booleanOr, letterOf, joinStrings, lengthOf, doesContain, mod, doesEqual, getOtherSpriteOf, getDirection, itemOfList, itemNumberOfList, lengthOfList, listContainsItem").split(","));
-        generatedCode += "\nconst whenIStartAsAClone = sprite.whenIStartAsAClone;";
+        generatedCode += window.JSIfy.generateConstScript(
+          "JSIfy",
+          "stopAllSounds, sendMessage, NumberValue, getMouseX, getMouseY, isKeyDown, getTimer, resetTimer, daysSince2000, getStage".split(
+            ","
+          )
+        );
+        generatedCode += window.JSIfy.generateConstScript(
+          "JSIfy.proAPI",
+          "random".split(",")
+        );
+        generatedCode += window.JSIfy.generateConstScript(
+          "sprite",
+          "addMessageThread, makeScriptInfo, doErrorHandler, removeScriptInfo, addKeyPressedFunction, addClickFunction, addMessageFunction, deleteClone, say, goTo, wait, repeat, setX, setY, createCloneOf, setToFrontOrBack, clearEffects, goForwardBackLayers, saySecs, stopScripts, waitUntil, changeCostumeNumber, nextStageCostume, setCostume, setStageCostume, setSize, changeSize, glideTo, playSound, addToList, deleteOfList, deleteAllOfList, insertAtList, repeatUntil, findCustomBlock, changeEffectBy, askAndWait, setEffect, turnRight, turnLeft, addFlagFunction, replaceItemOfList, moveSteps, forever, setXY, setRotationStyle, changeVolumeBy, setVolume, pointTowards, glideToXY, getListString, setVariable, getVariable, changeVariable, changeX, changeY, setDirection, distanceTo, getTimeCurrent, mathop, booleanNot, booleanAnd, booleanOr, letterOf, joinStrings, lengthOf, doesContain, mod, doesEqual, getOtherSpriteOf, getDirection, itemOfList, itemNumberOfList, lengthOfList, listContainsItem".split(
+            ","
+          )
+        );
+        generatedCode +=
+          "\nconst whenIStartAsAClone = sprite.whenIStartAsAClone;";
         var curBlock = null;
         if (s.blocks2[Object.keys(s.blocks2)[0]]) {
           var i = 0;
@@ -3234,9 +3264,7 @@
                 if (b.opcode == "operator_lt") {
                   addedto += `(NumberValue(${getOperators(
                     b.inputs.OPERAND1
-                  )}) < NumberValue(${getOperators(
-                    b.inputs.OPERAND2
-                  )}))`;
+                  )}) < NumberValue(${getOperators(b.inputs.OPERAND2)}))`;
                 }
                 if (b.opcode == "sensing_answer") {
                   addedto += "window.JSIfy.answer";
@@ -3269,9 +3297,7 @@
                       current = item;
                     }
                   }
-                  addedto += `getTimeCurrent(${JSON.stringify(
-                    current
-                  )})`;
+                  addedto += `getTimeCurrent(${JSON.stringify(current)})`;
                 }
                 if (b.opcode == "operator_multiply") {
                   addedto += `(NumberValue(${getOperators(
@@ -3293,9 +3319,7 @@
                 }
                 if (b.opcode == "sensing_keypressed") {
                   addedto +=
-                    "isKeyDown(" +
-                    getOperators(b.inputs["KEY_OPTION"]) +
-                    ")";
+                    "isKeyDown(" + getOperators(b.inputs["KEY_OPTION"]) + ")";
                 }
                 if (b.opcode == "sensing_timer") {
                   addedto += "getTimer()";
@@ -3360,16 +3384,11 @@
                   )}, ${getOperators(b.inputs.LETTER)})`;
                 }
                 if (b.opcode == "operator_join") {
-                  addedto += `joinStrings(${getOperators(
-                    b.inputs.STRING1
-                  )},
+                  addedto += `joinStrings(${getOperators(b.inputs.STRING1)},
             ${getOperators(b.inputs.STRING2)})`;
                 }
                 if (b.opcode == "operator_length") {
-                  addedto += `lengthOf(${getOperators(
-                    b.inputs.STRING,
-                    ""
-                  )})`;
+                  addedto += `lengthOf(${getOperators(b.inputs.STRING, "")})`;
                 }
                 if (b.opcode == "operator_contains") {
                   addedto += `doesContain(${getOperators(
@@ -3439,7 +3458,11 @@
                 if (b.opcode == "argument_reporter_string_number") {
                   var name = s.customBlockReporterNames[b.fields.VALUE[0]];
                   //console.log(s.customBlockReporterNames);
-                  addedto += "(function () {try{return values[" + JSON.stringify(name) + "" + `];}catch(e){return "";}})()`;
+                  addedto +=
+                    "(function () {try{return values[" +
+                    JSON.stringify(name) +
+                    "" +
+                    `];}catch(e){return "";}})()`;
                 }
                 if (b.opcode == "pen_menu_colorParam") {
                   var name = b.fields.colorParam[0];
@@ -3449,7 +3472,11 @@
                 if (b.opcode == "argument_reporter_boolean") {
                   var name = s.customBlockReporterNames[b.fields.VALUE[0]];
                   //console.log(s.customBlockReporterNames);
-                  addedto += "(function () {try{return values[" + JSON.stringify(name) + "" + `];}catch(e){return "";}})()`;
+                  addedto +=
+                    "(function () {try{return values[" +
+                    JSON.stringify(name) +
+                    "" +
+                    `];}catch(e){return "";}})()`;
                 }
                 if (b.opcode == "sensing_touchingcolor") {
                   addedto += "false";
@@ -3486,9 +3513,7 @@
                 if (b.opcode == "data_itemoflist") {
                   var index = getOperators(b.inputs.INDEX, 1);
                   var list = getFirstStringInArray(b.fields.LIST);
-                  addedto += `itemOfList(${JSON.stringify(
-                    list
-                  )},${index})`;
+                  addedto += `itemOfList(${JSON.stringify(list)},${index})`;
                 }
                 if (b.opcode == "data_itemnumoflist") {
                   var item = getOperators(b.inputs.ITEM, 1);
@@ -3721,9 +3746,9 @@
                 }
                 var isSinfoIgnoreBlock = b.opcode == "event_broadcast";
                 //if (isSinfoIgnoreBlock) {
-                  //addScriptStopHandler(true, b);
+                //addScriptStopHandler(true, b);
                 //} else {
-                  //addScriptStopHandler(false, b);
+                //addScriptStopHandler(false, b);
                 //}
                 blockFromStackCounter += 1;
                 //console.log(b,b.next);
@@ -3731,11 +3756,9 @@
                   addScriptStopHandler();
                   generatedCode +=
                     "\n" +
-                    `await glideToXY(${getOperators(
-                      b.inputs.X
-                    )},${getOperators(b.inputs.Y)},${getOperators(
-                      b.inputs.SECS
-                    )},sinfo);`;
+                    `await glideToXY(${getOperators(b.inputs.X)},${getOperators(
+                      b.inputs.Y
+                    )},${getOperators(b.inputs.SECS)},sinfo);`;
                   addScriptStopHandler();
                   readBlock(s.blocks2[b.next], warp);
                   return;
@@ -3743,24 +3766,20 @@
                 if (b.opcode == "motion_pointtowards") {
                   generatedCode +=
                     "\n" +
-                    `await pointTowards(${getOperators(
-                      b.inputs.TOWARDS
-                    )});`;
+                    `await pointTowards(${getOperators(b.inputs.TOWARDS)});`;
 
                   readBlock(s.blocks2[b.next], warp);
                   return;
                 }
                 if (b.opcode == "sound_setvolumeto") {
                   generatedCode +=
-                    "\n" +
-                    `setVolume(${getOperators(b.inputs.VOLUME)});`;
+                    "\n" + `setVolume(${getOperators(b.inputs.VOLUME)});`;
                   readBlock(s.blocks2[b.next], warp);
                   return;
                 }
                 if (b.opcode == "sound_changevolumeby") {
                   generatedCode +=
-                    "\n" +
-                    `changeVolumeBy(${getOperators(b.inputs.VOLUME)});`;
+                    "\n" + `changeVolumeBy(${getOperators(b.inputs.VOLUME)});`;
                   readBlock(s.blocks2[b.next], warp);
                   return;
                 }
@@ -3772,9 +3791,7 @@
                     }
                   }
                   generatedCode +=
-                    "\nsetRotationStyle(" +
-                    JSON.stringify(field) +
-                    ");\n";
+                    "\nsetRotationStyle(" + JSON.stringify(field) + ");\n";
                   readBlock(s.blocks2[b.next], warp);
                   return;
                 }
@@ -3860,8 +3877,7 @@
                 }
                 if (b.opcode == "looks_switchcostumeto") {
                   generatedCode +=
-                    "\n" +
-                    `setCostume(${getOperators(b.inputs.COSTUME)});`;
+                    "\n" + `setCostume(${getOperators(b.inputs.COSTUME)});`;
 
                   readBlock(s.blocks2[b.next], warp);
                   return;
@@ -3869,9 +3885,7 @@
                 if (b.opcode == "looks_switchbackdropto") {
                   generatedCode +=
                     "\n" +
-                    `setStageCostume(${getOperators(
-                      b.inputs.BACKDROP
-                    )});`;
+                    `setStageCostume(${getOperators(b.inputs.BACKDROP)});`;
 
                   readBlock(s.blocks2[b.next], warp);
                   return;
@@ -3885,8 +3899,7 @@
                 }
                 if (b.opcode == "looks_changesizeby") {
                   generatedCode +=
-                    "\n" +
-                    `changeSize(${getOperators(b.inputs.CHANGE)});`;
+                    "\n" + `changeSize(${getOperators(b.inputs.CHANGE)});`;
 
                   readBlock(s.blocks2[b.next], warp);
                   return;
@@ -3895,9 +3908,9 @@
                   addScriptStopHandler();
                   generatedCode +=
                     "\n" +
-                    `await glideTo(${getOperators(
-                      b.inputs.TO
-                    )},${getOperators(b.inputs.SECS)},sinfo)`;
+                    `await glideTo(${getOperators(b.inputs.TO)},${getOperators(
+                      b.inputs.SECS
+                    )},sinfo)`;
 
                   readBlock(s.blocks2[b.next], warp);
                   return;
@@ -3933,9 +3946,7 @@
                 if (b.opcode == "sound_play") {
                   generatedCode +=
                     "\n" +
-                    `playSound(${getOperators(
-                      b.inputs.SOUND_MENU
-                    )}, false)` +
+                    `playSound(${getOperators(b.inputs.SOUND_MENU)}, false)` +
                     "\n";
                   readBlock(s.blocks2[b.next]);
                   return;
@@ -3973,8 +3984,7 @@
                   generatedCode += "\n" + "try{";
                   addScriptStopHandler();
                   readBlock(s.blocks2[b.next]);
-                  generatedCode +=
-                    "\n" + "}catch(e){doErrorHandler(e);}";
+                  generatedCode += "\n" + "}catch(e){doErrorHandler(e);}";
                   generatedCode += "\n" + "removeScriptInfo(sinfo);";
                   generatedCode += "\n});";
                   return;
@@ -3996,8 +4006,7 @@
                   generatedCode += "\n" + "try{";
                   addScriptStopHandler();
                   readBlock(s.blocks2[b.next]);
-                  generatedCode +=
-                    "\n" + "}catch(e){doErrorHandler(e);}";
+                  generatedCode += "\n" + "}catch(e){doErrorHandler(e);}";
                   generatedCode += "\n" + "removeScriptInfo(sinfo);";
                   generatedCode += "\n});";
                   return;
@@ -4024,8 +4033,7 @@
                   generatedCode += "\n" + "try{";
                   addScriptStopHandler();
                   readBlock(s.blocks2[b.next]);
-                  generatedCode +=
-                    "\n" + "}catch(e){doErrorHandler(e);}";
+                  generatedCode += "\n" + "}catch(e){doErrorHandler(e);}";
                   generatedCode += "\n" + "removeScriptInfo(sinfo);";
                   generatedCode += "\n});";
                   return;
@@ -4058,8 +4066,7 @@
                   generatedCode += "\n" + "try{";
                   addScriptStopHandler();
                   readBlock(s.blocks2[b.next], false);
-                  generatedCode +=
-                    "\n" + "}catch(e){doErrorHandler(e);}";
+                  generatedCode += "\n" + "}catch(e){doErrorHandler(e);}";
                   generatedCode += "\n" + "removeScriptInfo(sinfo);";
                   generatedCode += "});";
                   return;
@@ -4074,11 +4081,9 @@
                   addScriptStopHandler();
                   generatedCode +=
                     "\n" +
-                    `await glideToXY(${getOperators(
-                      b.inputs.X
-                    )},${getOperators(b.inputs.Y)},${getOperators(
-                      b.inputs.SECS
-                    )})`;
+                    `await glideToXY(${getOperators(b.inputs.X)},${getOperators(
+                      b.inputs.Y
+                    )},${getOperators(b.inputs.SECS)})`;
                   addScriptStopHandler();
                   readBlock(s.blocks2[b.next], warp);
                   return;
@@ -4130,21 +4135,18 @@
                   if (b.inputs.SUBSTACK) {
                     readBlock(s.blocks2[b.inputs.SUBSTACK[1]], warp);
                   }
-                  generatedCode +=
-                    "}catch(e){doErrorHandler(e);}\n},sinfo);";
+                  generatedCode += "}catch(e){doErrorHandler(e);}\n},sinfo);";
                   addScriptStopHandler();
                   readBlock(s.blocks2[b.next], warp);
                   return;
                 }
                 if (b.opcode == "motion_sety") {
-                  generatedCode +=
-                    "\nsetY(" + getOperators(b.inputs.Y) + ");";
+                  generatedCode += "\nsetY(" + getOperators(b.inputs.Y) + ");";
                   readBlock(s.blocks2[b.next], warp);
                   return;
                 }
                 if (b.opcode == "motion_setx") {
-                  generatedCode +=
-                    "\nsetX(" + getOperators(b.inputs.X) + ");";
+                  generatedCode += "\nsetX(" + getOperators(b.inputs.X) + ");";
                   readBlock(s.blocks2[b.next], warp);
                   return;
                 }
@@ -4243,8 +4245,7 @@
                   var list = getFirstStringInArray(b.fields.LIST);
                   var index = getOperators(b.inputs.INDEX, 1);
                   generatedCode +=
-                    "\n" +
-                    `deleteOfList(${JSON.stringify(list)},${index});`;
+                    "\n" + `deleteOfList(${JSON.stringify(list)},${index});`;
                   readBlock(s.blocks2[b.next], warp);
                   return;
                 }
@@ -4261,9 +4262,7 @@
                   var index = getOperators(b.inputs.INDEX, 1);
                   generatedCode +=
                     "\n" +
-                    `insertAtList(${JSON.stringify(
-                      list
-                    )}, ${item}, ${index});`;
+                    `insertAtList(${JSON.stringify(list)}, ${item}, ${index});`;
                   readBlock(s.blocks2[b.next], warp);
                   return;
                 }
@@ -4442,8 +4441,7 @@
                 }
                 if (b.opcode == "motion_pointindirection") {
                   generatedCode +=
-                    "\n" +
-                    `setDirection(${getOperators(b.inputs.DIRECTION)})`;
+                    "\n" + `setDirection(${getOperators(b.inputs.DIRECTION)})`;
                   readBlock(s.blocks2[b.next], warp);
                   return;
                 }
@@ -4479,8 +4477,7 @@
                 }
                 if (b.opcode == "motion_turnright") {
                   generatedCode +=
-                    "\n" +
-                    `turnRight(${getOperators(b.inputs.DEGREES)})`;
+                    "\n" + `turnRight(${getOperators(b.inputs.DEGREES)})`;
                   readBlock(s.blocks2[b.next], warp);
                   return;
                 }
@@ -5052,7 +5049,10 @@
             this.onlog(
               "Generating JavaScript for sprite " + target.name + "..."
             );
-            sprite.code = this.genCode(sprite, this.variables); //Generate the code from the scratch 3.0 project json.
+            sprite.code = await Terser.minify(
+              this.genCode(sprite, this.variables),
+              terserOptions
+            ); //Generate the code from the scratch 3.0 project json.
             try {
               if (window.JSIfy.debugLogs) {
                 console.log(
@@ -5283,7 +5283,7 @@
         window.JSIfy.updateTimer();
 
         window.JSIfy.tickFrame();
-        
+
         if (!window.JSIfy.disableRendering) {
           window.JSIfy.renderStage();
         }
