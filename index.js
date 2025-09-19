@@ -6,6 +6,7 @@
     const terserOptions = {
       compress: {
         passes: 2,
+        properties: false, 
       },
       mangle: true,
     };
@@ -491,134 +492,175 @@
     }
 
     var cast = {
-      isSafe: function (value) {
-        //Is safe to convert?
-        //Undefined, null, and other things that can possibly cause errors would return false.
-        //Anything else like booleans, numbers, and strings would return true.
-        var types = ["boolean", "number", "string"];
-        for (var type of types) {
-          if (typeof value == type) {
+    // ----------------------------------------------------
+    // OPTIMIZED for isSafe: Replaced array loop with a single switch or direct type checks.
+    // However, since it's only called internally by toString/toBoolean, 
+    // we can optimize those instead and remove isSafe entirely, 
+    // but we'll keep it for external compatibility and optimize its logic.
+    // ----------------------------------------------------
+    isSafe: function (value) {
+        // Use direct checks instead of creating and looping over an array.
+        const type = typeof value;
+        // Scratch safe types are boolean, number, string.
+        return type === "boolean" || type === "number" || type === "string";
+    },
+
+    // ----------------------------------------------------
+    // OPTIMIZED for toNumber: Eliminated unnecessary 'if (typeof value === "number")' check 
+    // by handling both existing numbers and coerced numbers identically for NaN.
+    // ----------------------------------------------------
+    toNumber: function (value) {
+        // Use unary plus operator (+) for fastest coercion to number.
+        const n = +value; 
+
+        // Use isNaN() (globally available, slightly faster than Number.isNaN for non-Numbers)
+        // Check for NaN or an actual number.
+        if (n !== n) { 
+            // n !== n is the fastest way to check for NaN in JavaScript.
+            // Scratch treats NaN as 0.
+            return 0;
+        }
+
+        return n;
+    },
+
+    // ----------------------------------------------------
+    // OPTIMIZED for toString: Removed the repeated call to the (now slightly faster) isSafe.
+    // Scratch logic: Undefined, null, etc. must cast to "".
+    // ----------------------------------------------------
+    toString: function (value) {
+        const type = typeof value;
+        // Check for common 'unsafe' types first: undefined, null, symbol, object (only if null).
+        if (value === undefined || value === null) {
+            return ""; 
+        }
+        
+        // Coercing with String() is fast, but Scratch wants all 'unsafe' types 
+        // that are not a boolean/number/string to become "" before conversion. 
+        // Since we only need to handle undefined/null as a special case for "", 
+        // all other types (objects, functions, etc.) will naturally convert 
+        // to a string representation that's non-empty via String(value), which is Scratch behavior.
+        // If you truly only want boolean, number, string to pass, use this:
+        if (type !== "boolean" && type !== "number" && type !== "string") {
+             // If a variable is a reference to a list or sprite object, it 
+             // will return [object Object] here, but Scratch returns an empty string for those. 
+             // Assuming your compiler handles lists/sprites separately, this is fine.
+             // If not, you might need a more complex check here.
+             if (type === "object" || type === "function" || type === "symbol") return "";
+        }
+        
+        return String(value);
+    },
+
+    // ----------------------------------------------------
+    // Optimized toBoolean: Eliminated the repeated call to isSafe.
+    // ----------------------------------------------------
+    toBoolean: function (value) {
+        // Check for the *truly* unsafe types that become false in Scratch
+        if (value === undefined || value === null) {
+             return false;
+        }
+
+        // Already a boolean? Return it immediately.
+        if (typeof value === "boolean") {
+            return value;
+        }
+        
+        // Handle Scratch's specific string-to-boolean rules.
+        if (typeof value === "string") {
+            // These specific strings are treated as false in Scratch.
+            // Using a single check with || is faster than separate checks.
+            const s = value.toLowerCase();
+            if (s === "" || s === "0" || s === "false") {
+                return false;
+            }
+            // All other strings treated as true.
             return true;
-          }
         }
-        return false;
-      },
-      compare: function (v1, v2) {
-        let n1 = Number(v1);
-        let n2 = Number(v2);
+        
+        // For numbers (0, NaN, Infinity) and other objects, use standard Boolean coercion.
+        // Note: Scratch's toNumber handles NaN as 0, which is true. 
+        // This Boolean(value) for numbers correctly handles 0 (false) and all others (true).
+        return Boolean(value);
+    },
+
+    // ----------------------------------------------------
+    // compare: Minimal changes, as the logic is complex and dependent on the external isNotActuallyZero.
+    // ----------------------------------------------------
+    compare: function (v1, v2) {
+        // Use the new, faster cast.toNumber
+        let n1 = cast.toNumber(v1);
+        let n2 = cast.toNumber(v2);
+        
+        // NOTE: The next two 'if' blocks rely on the external 'isNotActuallyZero'
+        // and cannot be optimized without knowing its implementation.
         if (n1 === 0 && isNotActuallyZero(v1)) {
-          n1 = NaN;
+            n1 = NaN;
         } else if (n2 === 0 && isNotActuallyZero(v2)) {
-          n2 = NaN;
+            n2 = NaN;
         }
-        if (isNaN(n1) || isNaN(n2)) {
-          // At least one argument can't be converted to a number.
-          // Scratch compares strings as case insensitive.
-          const s1 = String(v1).toLowerCase();
-          const s2 = String(v2).toLowerCase();
-          if (s1 < s2) {
-            return -1;
-          } else if (s1 > s2) {
-            return 1;
-          }
-          return 0;
+        
+        if (n1 !== n1 || n2 !== n2) { // Faster NaN check
+            // At least one argument can't be converted to a number.
+            // Scratch compares strings as case insensitive.
+            // This is still the bottleneck: two String() calls and two toLowerCase() calls.
+            const s1 = String(v1).toLowerCase();
+            const s2 = String(v2).toLowerCase();
+            if (s1 < s2) {
+                return -1;
+            } else if (s1 > s2) {
+                return 1;
+            }
+            return 0;
         }
         // Handle the special case of Infinity
         if (
-          (n1 === Infinity && n2 === Infinity) ||
-          (n1 === -Infinity && n2 === -Infinity)
+            (n1 === Infinity && n2 === Infinity) ||
+            (n1 === -Infinity && n2 === -Infinity)
         ) {
-          return 0;
+            return 0;
         }
         // Compare as numbers.
         return n1 - n2;
-      },
-      toNumber: function (value) {
-        // If value is already a number we don't need to coerce it with
-        // Number().
-        if (typeof value === "number") {
-          // Scratch treats NaN as 0, when needed as a number.
-          // E.g., 0 + NaN -> 0.
-          if (Number.isNaN(value)) {
-            return 0;
-          }
-          return value;
-        }
-        const n = Number(value);
-        if (Number.isNaN(n)) {
-          // Scratch treats NaN as 0, when needed as a number.
-          // E.g., 0 + NaN -> 0.
-          return 0;
-        }
-        return n;
-      },
-      toString: function (value) {
-        if (!cast.isSafe(value)) {
-          return ""; //empty string
-        }
-
-        return String(value);
-      },
-      toBoolean: function (value) {
-        if (!cast.isSafe(value)) {
-          return false;
-        }
-
-        // Already a boolean?
-        if (typeof value === "boolean") {
-          return value;
-        }
-        if (typeof value === "string") {
-          // These specific strings are treated as false in Scratch.
-          if (
-            value === "" ||
-            value === "0" ||
-            value.toLowerCase() === "false"
-          ) {
-            return false;
-          }
-          // All other strings treated as true.
-          return true;
-        }
-        // Coerce other values and numbers.
-        return Boolean(value);
-      },
-      toRgbColorObject(value) {
+    },
+    
+    // Remaining functions are left as-is since their complexity relies on external libraries
+    // and they are likely called less frequently than the core type casts.
+    toRgbColorObject: function(value) {
         let color;
         if (typeof value === "string" && value.substring(0, 1) === "#") {
-          color = Color.hexToRgb(value);
-
-          // If the color wasn't *actually* a hex color, cast to black
-          if (!color)
-            color = {
-              r: 0,
-              g: 0,
-              b: 0,
-              a: 255,
-            };
+            color = Color.hexToRgb(value);
+            if (!color)
+                color = {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                };
         } else {
-          color = Color.decimalToRgb(cast.toNumber(value));
+            color = Color.decimalToRgb(cast.toNumber(value));
         }
         return color;
-      },
-      toRgbColorList(value) {
+    },
+    toRgbColorList: function(value) {
         const color = cast.toRgbColorObject(value);
         return [color.r, color.g, color.b];
-      },
-      getSpritePosAsTopLeftPos(width, height, x, y) {
+    },
+    getSpritePosAsTopLeftPos: function(width, height, x, y) {
         var sx = Math.round(x);
         var sy = Math.round(y);
         var x = renderer.xToLeft(sx, width);
         var y = renderer.yToTop(sy * -1, height);
 
         return {
-          width: width,
-          height: height,
-          x: x,
-          y: y,
+            width: width,
+            height: height,
+            x: x,
+            y: y,
         };
-      },
-    };
+    },
+};
+    
     var penCanvas = document.createElement("canvas");
     var penrenderer = new window.GRender.Render(penCanvas, true);
     var penContext = penCanvas.getContext("2d");
@@ -1981,7 +2023,7 @@
         }
         async repeat(times, warp, funct, rs) {
           var i = 0;
-          var t = window.JSIfy.NumberValue(times);
+          var t = cast.toNumber(times);
           if (isNaN(t)) {
             return;
           }
@@ -2278,18 +2320,6 @@
           return result;
         }
         fixValues() {
-          if (typeof this.x !== "number") {
-            this.x = window.JSIfy.NumberValue(this.x);
-          }
-          if (typeof this.y !== "number") {
-            this.y = window.JSIfy.NumberValue(this.y);
-          }
-          if (typeof this.direction !== "number") {
-            this.direction = window.JSIfy.NumberValue(this.direction);
-          }
-          if (typeof this.size !== "number") {
-            this.size = window.JSIfy.NumberValue(this.size);
-          }
           if (this.size < 0) {
             this.size = 0;
           }
@@ -2578,9 +2608,8 @@
         }
 
         mathop(operatorv, num) {
-          //window.JSIfy.onlog(operatorv);
           const operator = operatorv.toLowerCase();
-          const n = window.JSIfy.NumberValue(num);
+          const n = cast.toNumber(num);
           switch (operator) {
             case "abs":
               return Math.abs(n);
@@ -2614,16 +2643,11 @@
           return 0;
         }
         turnLeft(degrees) {
-          //console.log(degrees);
-          this.fixValues();
           this.direction -= cast.toNumber(degrees);
           this.fixValues();
           this.updateMask(); //update the collision mask.
         }
         turnRight(degrees) {
-          //console.log(Number(degrees));
-          this.fixValues();
-
           this.direction += cast.toNumber(degrees);
           this.fixValues();
           this.updateMask(); //update the collision mask.
@@ -2658,57 +2682,28 @@
           }
         }
         setX(x) {
-          //if (Number(x)) {
-          this.fixValues();
           this.x = cast.toNumber(x);
-          //} else {
-          //  console.warn("NAN X: " + x);
-          //}
           this.fixValues();
           this.updateMask(); //update the collision mask.
         }
         setY(y) {
-          //if (Number(y)) {
-          this.fixValues();
           this.y = cast.toNumber(y);
-          //} else {
-          //  console.warn("NAN Y: " + y);
-          //}
           this.fixValues();
           this.updateMask(); //update the collision mask.
         }
         changeX(x) {
-          //if (Number(x)) {
-          this.fixValues();
           this.x += cast.toNumber(x);
-          //} else {
-          //  console.warn("NAN X: " + x);
-          //}
           this.fixValues();
           this.updateMask(); //update the collision mask.
         }
         changeY(y) {
-          //if (Number(y)) {
-          this.fixValues();
           this.y += cast.toNumber(y);
-          //} else {
-          //  console.warn("NAN Y: " + y);
-          //}
           this.fixValues();
           this.updateMask(); //update the collision mask.
         }
         setXY(x, y) {
-          //if (Number(x)) {
-          this.fixValues();
           this.x = cast.toNumber(x);
-          //} else {
-          //  console.warn("NAN X: " + x);
-          //}
-          //if (Number(y)) {
           this.y = cast.toNumber(y);
-          //} else {
-          //  console.warn("NAN Y: " + y);
-          //}
           this.fixValues();
           this.updateMask(); //update the collision mask.
         }
@@ -4273,7 +4268,7 @@
                 if (b.opcode == "motion_movesteps") {
                   generatedCode +=
                     "\n" +
-                    `moveSteps(window.JSIfy.NumberValue(${getOperators(
+                    `moveSteps(cast.toNumber(${getOperators(
                       b.inputs.STEPS
                     )}));`;
                   readBlock(s.blocks2[b.next], warp);
@@ -4450,7 +4445,7 @@
                 if (b.opcode == "sensing_askandwait") {
                   addScriptStopHandler();
                   generatedCode +=
-                    "\nawait await askAndWait(" +
+                    "\nawaitaskAndWait(" +
                     getOperators(b.inputs.QUESTION, JSON.stringify("")) +
                     ",sinfo);";
                   addScriptStopHandler();
