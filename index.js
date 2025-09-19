@@ -5049,10 +5049,12 @@
             this.onlog(
               "Generating JavaScript for sprite " + target.name + "..."
             );
-            sprite.code = await Terser.minify(
-              this.genCode(sprite, this.variables),
-              terserOptions
-            ); //Generate the code from the scratch 3.0 project json.
+            sprite.code = this.genCode(sprite, this.variables); //Generate the code from the scratch 3.0 project json.
+            try{
+              sprite.code = await Terser.minify(sprite.code, terserOptions);
+            }catch(e){
+              window.alert("Terser error: "+e);
+            }
             try {
               if (window.JSIfy.debugLogs) {
                 console.log(
