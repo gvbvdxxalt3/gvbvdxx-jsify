@@ -1,4 +1,4 @@
-(function () {
+(async function () {
   try {
     if (window.wavefile) {
       var WaveFile = window.wavefile.WaveFile;
@@ -6,7 +6,7 @@
     const terserOptions = {
       compress: {
         passes: 2,
-        properties: false, 
+        properties: false,
       },
       mangle: true,
     };
@@ -25,17 +25,86 @@
       window.alert("Can't find scratchCanvas!");
       return;
     }
+    var pixiApp = new PIXI.Application();
+
+    await pixiApp.init({
+      width: 480, // Canvas width
+      height: 360, // Canvas height
+      backgroundColor: "#ffffff",
+      antialias: false,
+      resolution: 1,
+      view: cvs,
+      useContextAlpha: false,
+      powerPreference: "high-performance",
+    });
+
+    function setupScratchLikeMouse(app) {
+      const screenWidth = app.screen.width;
+      const screenHeight = app.screen.height;
+
+      const worldContainer = new PIXI.Container();
+      app.stage.addChild(worldContainer);
+
+      // Center the world container. All sprites will now be positioned relative to this center.
+      worldContainer.x = screenWidth / 2;
+      worldContainer.y = screenHeight / 2;
+
+      const mousePos = {
+        x: 0,
+        y: 0,
+        mouseDown: false,
+        _events: {
+          mousedown: [],
+          mouseup: [],
+        },
+      };
+
+      // This listener will convert the mouse coordinates to the Scratch-like system
+      app.canvas.addEventListener("pointermove", (event) => {
+        // Convert the raw mouse coordinates (from top-left) to the centered system
+        mousePos.x = Math.round(
+          event.offsetX / window.JSIfy.stageScale - screenWidth / 2
+        );
+        mousePos.y = -Math.round(
+          event.offsetY / window.JSIfy.stageScale - screenHeight / 2
+        );
+      });
+
+      // Add event listeners for mouse button state
+      app.canvas.addEventListener("pointerdown", () => {
+        mousePos.mouseDown = true;
+        // Trigger any registered mousedown event listeners
+        mousePos._events.mousedown.forEach((f) => f(mousePos.x, mousePos.y));
+      });
+
+      app.canvas.addEventListener("pointerup", () => {
+        mousePos.mouseDown = false;
+        // Trigger any registered mouseup event listeners
+        mousePos._events.mouseup.forEach((f) => f(mousePos.x, mousePos.y));
+      });
+
+      // Public method to add event listeners, just like a DOM element
+      mousePos.addEventListener = (eventName, callback) => {
+        if (mousePos._events[eventName] && typeof callback === "function") {
+          mousePos._events[eventName].push(callback);
+        }
+      };
+
+      // Return an object containing both the mouse position and the world container
+      return { mouse: mousePos, world: worldContainer };
+    }
+    var scratchMouseObject = setupScratchLikeMouse(pixiApp);
     var cvs2 = document.createElement("canvas");
-    var renderer = new window.GRender.Render(cvs, true);
+    var renderer = new window.GRender.GRenderMouseEvents(cvs, true);
     function wrapClamp(n, min, max) {
       const range = max - min + 1;
       return n - Math.floor((n - min) / range) * range;
     }
     function setMaskPositionsToMousePositions(mask) {
-      mask.x = Math.round(renderer.mousePos[0]) * 2; //Sprites are scaled to 2x on collision masks, so account for the scale up.
-      mask.y = Math.round(renderer.mousePos[1]) * 2;
-      mask.scalex = 1;
-      mask.scaley = 1;
+      mask.x = Math.round(scratchMouseObject.mouse.x * 2) + maskOffsets[0]; //Sprites are scaled to 2x on collision masks, so account for the scale up.
+      mask.y = Math.round(-scratchMouseObject.mouse.y * 2) + maskOffsets[1];
+      mask.scaleX = 1;
+      mask.scaleY = 1;
       mask.angle = 0;
       mask.flipX = false;
       mask.flipY = false;
@@ -103,12 +172,13 @@
         input.focus();
       });
     }
+    var maskOffsets = [0, 0];
     function transformMaskToSprite(sprite, mask) {
-      mask.x = sprite.x * 2;
-      mask.y = sprite.y * -1 * 2;
-      mask.scalex = sprite.size / 100;
-      mask.scaley = sprite.size / 100;
-      mask.angle = sprite.direction - 90;
+      mask.x = Math.round(sprite.x * 2) + maskOffsets[0];
+      mask.y = Math.round(sprite.y * 2) * -1 + maskOffsets[1];
+      mask.scaleX = sprite.size / 100;
+      mask.scaleY = sprite.size / 100;
+      mask.angle = Math.round(sprite.direction - 90);
       mask.flipX = false;
       mask.centerX = mask.costumeCenterX * 2;
       mask.centerY = mask.costumeCenterY * 2;
@@ -138,8 +208,6 @@
       return mask;
     }
     var spriteCursorMask = generateMouseCollisionMask();
-    renderer.gameScreenWidth = 480;
-    renderer.gameScreenHeight = 360;
     var audioCTX = new AudioContext();
 
     // Function to initialize or reset the AudioContext
@@ -492,175 +560,177 @@
     }
 
     var cast = {
-    // ----------------------------------------------------
-    // OPTIMIZED for isSafe: Replaced array loop with a single switch or direct type checks.
-    // However, since it's only called internally by toString/toBoolean, 
-    // we can optimize those instead and remove isSafe entirely, 
-    // but we'll keep it for external compatibility and optimize its logic.
-    // ----------------------------------------------------
-    isSafe: function (value) {
+      // ----------------------------------------------------
+      // OPTIMIZED for isSafe: Replaced array loop with a single switch or direct type checks.
+      // However, since it's only called internally by toString/toBoolean,
+      // we can optimize those instead and remove isSafe entirely,
+      // but we'll keep it for external compatibility and optimize its logic.
+      // ----------------------------------------------------
+      isSafe: function (value) {
         // Use direct checks instead of creating and looping over an array.
         const type = typeof value;
         // Scratch safe types are boolean, number, string.
         return type === "boolean" || type === "number" || type === "string";
-    },
+      },
 
-    // ----------------------------------------------------
-    // OPTIMIZED for toNumber: Eliminated unnecessary 'if (typeof value === "number")' check 
-    // by handling both existing numbers and coerced numbers identically for NaN.
-    // ----------------------------------------------------
-    toNumber: function (value) {
+      // ----------------------------------------------------
+      // OPTIMIZED for toNumber: Eliminated unnecessary 'if (typeof value === "number")' check
+      // by handling both existing numbers and coerced numbers identically for NaN.
+      // ----------------------------------------------------
+      toNumber: function (value) {
         // Use unary plus operator (+) for fastest coercion to number.
-        const n = +value; 
+        const n = +value;
 
         // Use isNaN() (globally available, slightly faster than Number.isNaN for non-Numbers)
         // Check for NaN or an actual number.
-        if (n !== n) { 
-            // n !== n is the fastest way to check for NaN in JavaScript.
-            // Scratch treats NaN as 0.
-            return 0;
+        if (n !== n) {
+          // n !== n is the fastest way to check for NaN in JavaScript.
+          // Scratch treats NaN as 0.
+          return 0;
         }
 
         return n;
-    },
+      },
 
-    // ----------------------------------------------------
-    // OPTIMIZED for toString: Removed the repeated call to the (now slightly faster) isSafe.
-    // Scratch logic: Undefined, null, etc. must cast to "".
-    // ----------------------------------------------------
-    toString: function (value) {
+      // ----------------------------------------------------
+      // OPTIMIZED for toString: Removed the repeated call to the (now slightly faster) isSafe.
+      // Scratch logic: Undefined, null, etc. must cast to "".
+      // ----------------------------------------------------
+      toString: function (value) {
         const type = typeof value;
         // Check for common 'unsafe' types first: undefined, null, symbol, object (only if null).
         if (value === undefined || value === null) {
-            return ""; 
+          return "";
         }
-        
-        // Coercing with String() is fast, but Scratch wants all 'unsafe' types 
-        // that are not a boolean/number/string to become "" before conversion. 
-        // Since we only need to handle undefined/null as a special case for "", 
-        // all other types (objects, functions, etc.) will naturally convert 
+
+        // Coercing with String() is fast, but Scratch wants all 'unsafe' types
+        // that are not a boolean/number/string to become "" before conversion.
+        // Since we only need to handle undefined/null as a special case for "",
+        // all other types (objects, functions, etc.) will naturally convert
         // to a string representation that's non-empty via String(value), which is Scratch behavior.
         // If you truly only want boolean, number, string to pass, use this:
         if (type !== "boolean" && type !== "number" && type !== "string") {
-             // If a variable is a reference to a list or sprite object, it 
-             // will return [object Object] here, but Scratch returns an empty string for those. 
-             // Assuming your compiler handles lists/sprites separately, this is fine.
-             // If not, you might need a more complex check here.
-             if (type === "object" || type === "function" || type === "symbol") return "";
+          // If a variable is a reference to a list or sprite object, it
+          // will return [object Object] here, but Scratch returns an empty string for those.
+          // Assuming your compiler handles lists/sprites separately, this is fine.
+          // If not, you might need a more complex check here.
+          if (type === "object" || type === "function" || type === "symbol")
+            return "";
         }
-        
-        return String(value);
-    },
 
-    // ----------------------------------------------------
-    // Optimized toBoolean: Eliminated the repeated call to isSafe.
-    // ----------------------------------------------------
-    toBoolean: function (value) {
+        return String(value);
+      },
+
+      // ----------------------------------------------------
+      // Optimized toBoolean: Eliminated the repeated call to isSafe.
+      // ----------------------------------------------------
+      toBoolean: function (value) {
         // Check for the *truly* unsafe types that become false in Scratch
         if (value === undefined || value === null) {
-             return false;
+          return false;
         }
 
         // Already a boolean? Return it immediately.
         if (typeof value === "boolean") {
-            return value;
+          return value;
         }
-        
+
         // Handle Scratch's specific string-to-boolean rules.
         if (typeof value === "string") {
-            // These specific strings are treated as false in Scratch.
-            // Using a single check with || is faster than separate checks.
-            const s = value.toLowerCase();
-            if (s === "" || s === "0" || s === "false") {
-                return false;
-            }
-            // All other strings treated as true.
-            return true;
+          // These specific strings are treated as false in Scratch.
+          // Using a single check with || is faster than separate checks.
+          const s = value.toLowerCase();
+          if (s === "" || s === "0" || s === "false") {
+            return false;
+          }
+          // All other strings treated as true.
+          return true;
         }
-        
+
         // For numbers (0, NaN, Infinity) and other objects, use standard Boolean coercion.
-        // Note: Scratch's toNumber handles NaN as 0, which is true. 
+        // Note: Scratch's toNumber handles NaN as 0, which is true.
         // This Boolean(value) for numbers correctly handles 0 (false) and all others (true).
         return Boolean(value);
-    },
+      },
 
-    // ----------------------------------------------------
-    // compare: Minimal changes, as the logic is complex and dependent on the external isNotActuallyZero.
-    // ----------------------------------------------------
-    compare: function (v1, v2) {
+      // ----------------------------------------------------
+      // compare: Minimal changes, as the logic is complex and dependent on the external isNotActuallyZero.
+      // ----------------------------------------------------
+      compare: function (v1, v2) {
         // Use the new, faster cast.toNumber
         let n1 = cast.toNumber(v1);
         let n2 = cast.toNumber(v2);
-        
+
         // NOTE: The next two 'if' blocks rely on the external 'isNotActuallyZero'
         // and cannot be optimized without knowing its implementation.
         if (n1 === 0 && isNotActuallyZero(v1)) {
-            n1 = NaN;
+          n1 = NaN;
         } else if (n2 === 0 && isNotActuallyZero(v2)) {
-            n2 = NaN;
+          n2 = NaN;
         }
-        
-        if (n1 !== n1 || n2 !== n2) { // Faster NaN check
-            // At least one argument can't be converted to a number.
-            // Scratch compares strings as case insensitive.
-            // This is still the bottleneck: two String() calls and two toLowerCase() calls.
-            const s1 = String(v1).toLowerCase();
-            const s2 = String(v2).toLowerCase();
-            if (s1 < s2) {
-                return -1;
-            } else if (s1 > s2) {
-                return 1;
-            }
-            return 0;
+
+        if (n1 !== n1 || n2 !== n2) {
+          // Faster NaN check
+          // At least one argument can't be converted to a number.
+          // Scratch compares strings as case insensitive.
+          // This is still the bottleneck: two String() calls and two toLowerCase() calls.
+          const s1 = String(v1).toLowerCase();
+          const s2 = String(v2).toLowerCase();
+          if (s1 < s2) {
+            return -1;
+          } else if (s1 > s2) {
+            return 1;
+          }
+          return 0;
         }
         // Handle the special case of Infinity
         if (
-            (n1 === Infinity && n2 === Infinity) ||
-            (n1 === -Infinity && n2 === -Infinity)
+          (n1 === Infinity && n2 === Infinity) ||
+          (n1 === -Infinity && n2 === -Infinity)
         ) {
-            return 0;
+          return 0;
         }
         // Compare as numbers.
         return n1 - n2;
-    },
-    
-    // Remaining functions are left as-is since their complexity relies on external libraries
-    // and they are likely called less frequently than the core type casts.
-    toRgbColorObject: function(value) {
+      },
+
+      // Remaining functions are left as-is since their complexity relies on external libraries
+      // and they are likely called less frequently than the core type casts.
+      toRgbColorObject: function (value) {
         let color;
         if (typeof value === "string" && value.substring(0, 1) === "#") {
-            color = Color.hexToRgb(value);
-            if (!color)
-                color = {
-                    r: 0,
-                    g: 0,
-                    b: 0,
-                    a: 255,
-                };
+          color = Color.hexToRgb(value);
+          if (!color)
+            color = {
+              r: 0,
+              g: 0,
+              b: 0,
+              a: 255,
+            };
         } else {
-            color = Color.decimalToRgb(cast.toNumber(value));
+          color = Color.decimalToRgb(cast.toNumber(value));
         }
         return color;
-    },
-    toRgbColorList: function(value) {
+      },
+      toRgbColorList: function (value) {
         const color = cast.toRgbColorObject(value);
         return [color.r, color.g, color.b];
-    },
-    getSpritePosAsTopLeftPos: function(width, height, x, y) {
+      },
+      getSpritePosAsTopLeftPos: function (width, height, x, y) {
         var sx = Math.round(x);
         var sy = Math.round(y);
         var x = renderer.xToLeft(sx, width);
         var y = renderer.yToTop(sy * -1, height);
 
         return {
-            width: width,
-            height: height,
-            x: x,
-            y: y,
+          width: width,
+          height: height,
+          x: x,
+          y: y,
         };
-    },
-};
-    
+      },
+    };
+
     var penCanvas = document.createElement("canvas");
     var penrenderer = new window.GRender.Render(penCanvas, true);
     var penContext = penCanvas.getContext("2d");
@@ -820,8 +890,6 @@
       pen: pen,
       penSprite: penSprite,
       setStageSize: function (width, height) {
-        renderer.gameScreenWidth = width;
-        renderer.gameScreenHeight = height;
         penCanvas.width = width;
         penCanvas.height = height;
         penSprite.width = penCanvas.width;
@@ -830,7 +898,7 @@
         penSprite.rotateOffsetY = penSprite.height / 2;
       },
       getStageSize: function () {
-        return [renderer.gameScreenWidth, renderer.gameScreenHeight];
+        //return [renderer.gameScreenWidth, renderer.gameScreenHeight];
       },
       cloudEngine: null,
       checkCloudVariables: function () {
@@ -858,10 +926,10 @@
         this.username = v;
       },
       getMouseX: function () {
-        return renderer.mousePos[0];
+        return scratchMouseObject.mouse.x;
       },
       getMouseY: function () {
-        return renderer.mousePos[1] * -1;
+        return scratchMouseObject.mouse.y;
       },
       getStage: function () {
         for (var spr of window.JSIfy.sprites) {
@@ -896,6 +964,9 @@
           sprites = sprites.reverse(); //sprites are ordered in render order. (back to front) reverse to get sprite execution order (front to back).
         }
         return sprites;
+      },
+      getAllSprites: function () {
+        return this.sprites;
       },
       findBigLayerNumber: function (ignoreLayer) {
         var big = 0;
@@ -937,7 +1008,7 @@
         return small;
       },
       NumberValue: function (v) {
-        return cast.toNumber(v);
+        return +v || 0;
         if (typeof v == "number") {
           return v;
         }
@@ -1072,6 +1143,10 @@
           this.runscript = false;
           this.flagHats = [];
           this.rsprite = new window.GRender.Sprite(32, 32, 32, 32, 32, 32);
+          this.pixiSprite = new PIXI.Sprite(PIXI.Texture.EMPTY);
+          this.pixiColorMatrix = new PIXI.ColorMatrixFilter();
+          this.pixiSprite.filters = [this.pixiColorMatrix];
+
           this.rspriteSpeech = new window.GRender.Sprite(
             32,
             32,
@@ -1132,6 +1207,123 @@
           };
         }
 
+        adjustPixiSprite() {
+          if (this.showing) {
+            var stageScale = window.JSIfy.stageScale;
+            var pixiSprite = this.pixiSprite;
+            var pixiColorMatrix = this.pixiColorMatrix;
+            var updateTexture = false;
+            if (
+              this._lastCostume !== this.costume ||
+              this._lastSize !== this.size
+            ) {
+              this.getRenderableCostumeImage();
+              this._lastCostume = this.costume;
+              this._lastSize = this.size;
+              updateTexture = true;
+            }
+            var currentCostume = this.costume;
+
+            var costumeWidth = currentCostume.cwidth;
+            var costumeHeight = currentCostume.cheight;
+            var offsetx = currentCostume.offsetx;
+            var offsety = currentCostume.offsety;
+
+            if (updateTexture) {
+              var texture = currentCostume.texture;
+              pixiSprite.texture = texture;
+            }
+
+            if (this.size < 1) {
+              this.size = 1;
+            }
+
+            var sizeScale = this.size / 100;
+            sizeScale = sizeScale / currentCostume.upscale;
+            sizeScale = sizeScale / currentCostume.res;
+
+            pixiSprite.scale.x = sizeScale;
+            pixiSprite.scale.y = sizeScale;
+
+            // Rotation logic
+            var angle = this.direction - 90;
+            if (this.rotationStyle === "left-right") {
+              angle = 0;
+              if (this.getDirection() > 0) {
+                pixiSprite.scale.x = sizeScale;
+              } else {
+                pixiSprite.scale.x = -sizeScale;
+              }
+            } else if (this.rotationStyle === "don't rotate") {
+              angle = 0;
+            }
+            // We should also ensure the scale is 1 in the default case
+            else {
+              pixiSprite.scale.x = sizeScale;
+              pixiSprite.scale.y = sizeScale;
+            }
+
+            pixiSprite.x =
+              pixiApp.renderer.width / 2 + (+this.x || 0) * stageScale;
+            pixiSprite.y =
+              pixiApp.renderer.height / 2 - (+this.y || 0) * stageScale;
+
+            pixiSprite.anchor.x = 0;
+            pixiSprite.anchor.y = 0;
+            var normalizedX = offsetx / costumeWidth;
+            var normalizedY = offsety / costumeHeight;
+            pixiSprite.anchor.set(normalizedX, normalizedY);
+
+            if (this.effects.ghost > 100) {
+              this.effects.ghost = 100;
+            }
+            if (this.effects.ghost < 0) {
+              this.effects.ghost = 0;
+            }
+            pixiSprite.alpha = 1 - this.effects.ghost / 100;
+
+            this.effects.brightness = this.effects.brightness || 0;
+            if (this.effects.brightness < -100) {
+              this.effects.brightness = -100;
+            }
+            if (this.effects.brightness > 100) {
+              this.effects.brightness = 100;
+            }
+            var brighter = this.effects.brightness / 100;
+            pixiColorMatrix.matrix = [
+              1,
+              0,
+              0,
+              0,
+              brighter * 2, // Red channel, offset by brightnessValue
+              0,
+              1,
+              0,
+              0,
+              brighter * 2, // Green channel, offset by brightnessValue
+              0,
+              0,
+              1,
+              0,
+              brighter * 2, // Blue channel, offset by brightnessValue
+              0,
+              0,
+              0,
+              1,
+              0, // Alpha channel (unchanged)
+            ];
+
+            pixiSprite.angle = angle;
+
+            pixiSprite.scale.x = stageScale * pixiSprite.scale.x;
+            pixiSprite.scale.y = stageScale * pixiSprite.scale.y;
+
+            pixiSprite.visible = this.showing;
+          } else {
+            this.pixiSprite.visible = false;
+          }
+        }
+
         hasEffectApplied(effect) {
           if (this.effects[effect] !== 0) {
             return true;
@@ -1141,27 +1333,50 @@
 
         getUpscaledSize(width, height) {
           return {
-            width: renderer.scaleX * width,
-            height: renderer.scaleY * height,
+            width: pixiApp.renderer.resolution * width,
+            height: pixiApp.renderer.resolution * height,
           };
         }
 
         getRenderableCostumeImage() {
+          if (this.costume.isBitmap) {
+            this.costume.texture = PIXI.Texture.from(this.costume.image);
+            this.costume.renderimage = this.costume.image;
+            this.costume.texture.baseTexture.scaleMode =
+              PIXI.SCALE_MODES.NEAREST;
+            return;
+          }
           var ogImage = this.costume.image;
+          var upscale = Math.round(this.size / 100);
+          if (upscale > 7) {
+            upscale = 7;
+          }
+          if (upscale < 0.5) {
+            upscale = 0.5;
+          }
+          if (this.costume.res !== 1) {
+            upscale = 1;
+          }
           var rImage = this.costume.renderimage;
+          this.costume.upscale = upscale;
           var size = this.getUpscaledSize(
-            ogImage.width * (Math.round(this.size / 200) * 2),
-            ogImage.height * (Math.round(this.size / 200) * 2)
+            ogImage.width * upscale,
+            ogImage.height * upscale
           );
           size.width = Math.round(size.width);
           size.height = Math.round(size.height);
           if (size.width < ogImage.width) {
             size.width = ogImage.width;
           }
-          if (size.height < ogImage.width) {
+          if (size.height < ogImage.height) {
             size.height = ogImage.height;
           }
-          if (!(rImage.width == size.width && rImage.height == size.height)) {
+          if (
+            !(
+              Math.round(rImage.width) == Math.round(size.width) &&
+              Math.round(rImage.height) == Math.round(size.height)
+            )
+          ) {
             var canvas = document.createElement("canvas");
             var ctx = canvas.getContext("2d");
             ctx.imageSmoothingEnabled = false;
@@ -1173,9 +1388,16 @@
 
             rImage = canvas;
             this.costume.renderimage = rImage;
-            return rImage;
-          } else {
-            return rImage;
+            this.costume.texture = PIXI.Texture.from(rImage);
+            this.costume.texture.baseTexture.scaleMode =
+              PIXI.SCALE_MODES.NEAREST;
+          }
+
+          if (!this.costume.texture) {
+            this.costume.upscale = 1;
+            this.costume.texture = PIXI.Texture.from(ogImage);
+            this.costume.texture.baseTexture.scaleMode =
+              PIXI.SCALE_MODES.NEAREST;
           }
         }
 
@@ -1253,7 +1475,7 @@
         setEffect(name, value) {
           var eName = cast.toString(name);
           if (typeof this.effects[eName] !== "undefined") {
-            this.effects[eName] = cast.toNumber(value);
+            this.effects[eName] = +value || 0;
           }
           this.fixValues();
         }
@@ -1261,7 +1483,7 @@
         changeEffectBy(name, value) {
           var eName = cast.toString(name);
           if (typeof this.effects[eName] !== "undefined") {
-            this.effects[eName] += cast.toNumber(value);
+            this.effects[eName] += +value || 0;
           }
           this.fixValues();
         }
@@ -1459,8 +1681,8 @@
           let targetX = 0;
           let targetY = 0;
           if (other === "_mouse_") {
-            targetX = renderer.mousePos[0];
-            targetY = renderer.mousePos[1] * -1;
+            targetX = scratchMouseObject.mouse.x;
+            targetY = scratchMouseObject.mouse.y;
           } else {
             if (!otherSprite) return 10000;
             targetX = otherSprite.x;
@@ -1472,7 +1694,7 @@
           return Math.sqrt(dx * dx + dy * dy);
         }
         getListItemNumber(ListIndex, ListName) {
-          var index = cast.toNumber(ListIndex);
+          var index = +ListIndex || 0;
           var indexString = cast.toString(ListIndex);
           var list = this.getList(ListName);
           if (!list) {
@@ -1495,7 +1717,7 @@
         }
 
         letterOf(text, number) {
-          const index = cast.toNumber(number) - 1;
+          const index = (+number || 0) - 1;
           const str = cast.toString(text);
           // Out of bounds?
           if (index < 0 || index >= str.length) {
@@ -1768,7 +1990,7 @@
           this.warpLayer();
         }
         goForwardBackLayers(FORWARDBACK, BYLAYERS) {
-          var layers = cast.toNumber(BYLAYERS);
+          var layers = +BYLAYERS || 0;
           if (FORWARDBACK.toString() == "backward") {
             this.layer -= layers;
           }
@@ -1779,6 +2001,7 @@
         }
         clearEffects() {
           this.effects.ghost = 0;
+          this.effects.brightness = 0;
         }
         addFlagFunction(flagFunction) {
           if (!this.isAClone) {
@@ -1992,11 +2215,11 @@
         }
         collisionCheck(x, y, otherMask) {}
         setSize(size) {
-          this.size = cast.toNumber(size);
+          this.size = +size || 0;
           this.updateMask(); //update the collision mask.
         }
         changeSize(size) {
-          this.size += cast.toNumber(size);
+          this.size += +size || 0;
           this.updateMask(); //update the collision mask.
         }
         getList(n) {
@@ -2021,7 +2244,7 @@
         }
         async repeat(times, warp, funct, rs) {
           var i = 0;
-          var t = cast.toNumber(times);
+          var t = +times || 0;
           if (isNaN(t)) {
             return;
           }
@@ -2108,10 +2331,11 @@
               th.running = false;
             }
             this.scriptRunInfo = [];
+            pixiApp.stage.removeChild(this.pixiSprite);
           }
         }
         setVolume(v) {
-          this.volume = cast.toNumber(v);
+          this.volume = +v || 0;
           this.fixValues();
           for (var s of this.soundsPlaying) {
             if (s.source) {
@@ -2121,7 +2345,7 @@
         }
         changeVolumeBy(v) {
           var newvolume = this.volume;
-          newvolume += cast.toNumber(v);
+          newvolume += +v || 0;
           this.setVolume(newvolume);
         }
         stopSoundObject(sound) {
@@ -2252,7 +2476,7 @@
               );
               var snd = th.sounds[soundname];
               if (!snd) {
-                soundname = th.soundNames[cast.toNumber(n) - 1];
+                soundname = th.soundNames[(+n || 0) - 1];
               }
               if (th.sounds[soundname]) {
                 th.stopSound(soundname);
@@ -2366,7 +2590,7 @@
           ) {
             return;
           }
-          var num = cast.toNumber(n) - 1;
+          var num = (+n || 0) - 1;
           num = Math.round(num);
           var costumekeys = Object.keys(this.costumes);
 
@@ -2533,7 +2757,7 @@
                 this.setCostumeName(cast.toString(cost));
               } else {
                 //Else, we just set it to the costume number.
-                this.setCostumeNumber(cast.toNumber(cost));
+                this.setCostumeNumber(+cost || 0);
               }
             }
           } catch (e) {
@@ -2571,8 +2795,8 @@
             return;
           }
           if (target == "_mouse_") {
-            this.x = renderer.mousePos[0];
-            this.y = renderer.mousePos[1] * -1;
+            this.x = scratchMouseObject.mouse.x;
+            this.y = scratchMouseObject.mouse.y;
             this.updateMask();
             return;
           }
@@ -2587,7 +2811,7 @@
           //console.log(direction);
           this.fixValues();
 
-          this.direction = cast.toNumber(direction);
+          this.direction = +direction || 0;
           this.fixValues();
           this.updateMask(); //update the collision mask.
         }
@@ -2607,7 +2831,7 @@
 
         mathop(operatorv, num) {
           const operator = operatorv.toLowerCase();
-          const n = cast.toNumber(num);
+          const n = +num || 0;
           switch (operator) {
             case "abs":
               return Math.abs(n);
@@ -2641,12 +2865,12 @@
           return 0;
         }
         turnLeft(degrees) {
-          this.direction -= cast.toNumber(degrees);
+          this.direction -= +degrees || 0;
           this.fixValues();
           this.updateMask(); //update the collision mask.
         }
         turnRight(degrees) {
-          this.direction += cast.toNumber(degrees);
+          this.direction += +degrees || 0;
           this.fixValues();
           this.updateMask(); //update the collision mask.
         }
@@ -2680,28 +2904,28 @@
           }
         }
         setX(x) {
-          this.x = cast.toNumber(x);
+          this.x = +x || 0;
           this.fixValues();
           this.updateMask(); //update the collision mask.
         }
         setY(y) {
-          this.y = cast.toNumber(y);
+          this.y = +y || 0;
           this.fixValues();
           this.updateMask(); //update the collision mask.
         }
         changeX(x) {
-          this.x += cast.toNumber(x);
+          this.x += +x || 0;
           this.fixValues();
           this.updateMask(); //update the collision mask.
         }
         changeY(y) {
-          this.y += cast.toNumber(y);
+          this.y += +y || 0;
           this.fixValues();
           this.updateMask(); //update the collision mask.
         }
         setXY(x, y) {
-          this.x = cast.toNumber(x);
-          this.y = cast.toNumber(y);
+          this.x = +x || 0;
+          this.y = +y || 0;
           this.fixValues();
           this.updateMask(); //update the collision mask.
         }
@@ -2758,8 +2982,8 @@
           let targetX = 0;
           let targetY = 0;
           if (towards === "_mouse_") {
-            targetX = renderer.mousePos[0];
-            targetY = renderer.mousePos[1] * -1;
+            targetX = scratchMouseObject.mouse.x;
+            targetY = scratchMouseObject.mouse.y;
           } else if (towards === "_random_") {
             this.direction = Math.round(Math.random() * 360) - 180;
             return;
@@ -2825,6 +3049,7 @@
           clone.whenIStartAsAClone.forEach((c) => {
             c();
           });
+          pixiApp.stage.addChild(clone.pixiSprite);
         }
       },
       flag: [],
@@ -2996,7 +3221,11 @@
       waitForStep: function (sinfo, block, blocknum) {
         var th = this;
         return new Promise((accept) => {
-          if (th.keysPressed["Shift"] && th.stepFastCount < 7000) {
+          if (
+            th.keysPressed["Shift"] &&
+            th.stepFastCount < 7000 &&
+            window.JSIfy.debugStepper
+          ) {
             th.stepFastCount += 1;
             accept(); //If shift pressed then no step.
           } else {
@@ -3048,6 +3277,7 @@
       messageFrameDelays: [],
       curFrame: 0,
       sendMessage: function (messageName, sinfo) {
+        //Use await for broadcast and wait, or for normal then no await.
         var th = this;
         var debuglog = false;
         var curFrame = window.JSIfy.curFrame;
@@ -3232,6 +3462,9 @@
             }
             return null;
           }
+          function convertToNumberFunction(v) {
+            return `(+(${v}) || 0)`;
+          }
           function opperatorTypeBlock(b, op) {
             //blocks with the "rounded" and "pointy" corners (blocks that basically can't stack)
             var addedto = "";
@@ -3247,9 +3480,11 @@
                   )},${getOperators(b.inputs.TO)})`;
                 }
                 if (b.opcode == "operator_lt") {
-                  addedto += `(NumberValue(${getOperators(
-                    b.inputs.OPERAND1
-                  )}) < NumberValue(${getOperators(b.inputs.OPERAND2)}))`;
+                  addedto += `(${convertToNumberFunction(
+                    getOperators(b.inputs.OPERAND1)
+                  )} < ${convertToNumberFunction(
+                    getOperators(b.inputs.OPERAND2)
+                  )})`;
                 }
                 if (b.opcode == "sensing_answer") {
                   addedto += "window.JSIfy.answer";
@@ -3285,22 +3520,25 @@
                   addedto += `getTimeCurrent(${JSON.stringify(current)})`;
                 }
                 if (b.opcode == "operator_multiply") {
-                  addedto += `(NumberValue(${getOperators(
-                    b.inputs.NUM1,
-                    0
-                  )}) * NumberValue(${getOperators(b.inputs.NUM2, 0)}))`;
+                  addedto += `(${convertToNumberFunction(
+                    getOperators(b.inputs.NUM1)
+                  )} * ${convertToNumberFunction(
+                    getOperators(b.inputs.NUM2)
+                  )})`;
                 }
                 if (b.opcode == "operator_add") {
-                  addedto += `(NumberValue(${getOperators(
-                    b.inputs.NUM1,
-                    0
-                  )}) + NumberValue(${getOperators(b.inputs.NUM2, 0)}))`;
+                  addedto += `(${convertToNumberFunction(
+                    getOperators(b.inputs.NUM1)
+                  )} + ${convertToNumberFunction(
+                    getOperators(b.inputs.NUM2)
+                  )})`;
                 }
                 if (b.opcode == "operator_divide") {
-                  addedto += `(NumberValue(${getOperators(
-                    b.inputs.NUM1,
-                    0
-                  )}) / NumberValue(${getOperators(b.inputs.NUM2, 0)}))`;
+                  addedto += `(${convertToNumberFunction(
+                    getOperators(b.inputs.NUM1)
+                  )} / ${convertToNumberFunction(
+                    getOperators(b.inputs.NUM2)
+                  )})`;
                 }
                 if (b.opcode == "sensing_keypressed") {
                   addedto +=
@@ -3320,70 +3558,74 @@
                   addedto += `daysSince2000()`;
                 }
                 if (b.opcode == "operator_gt") {
-                  addedto += `(NumberValue(${getOperators(
-                    b.inputs.OPERAND1
-                  )}) > NumberValue(${getOperators(b.inputs.OPERAND2)}))`;
+                  addedto += `(${convertToNumberFunction(
+                    getOperators(b.inputs.OPERAND1)
+                  )} > ${convertToNumberFunction(
+                    getOperators(b.inputs.OPERAND2)
+                  )})`;
                 }
                 if (b.opcode == "operator_subtract") {
-                  addedto += `(NumberValue(${getOperators(
-                    b.inputs.NUM1
-                  )}) - NumberValue(${getOperators(b.inputs.NUM2)}))`;
+                  addedto += `(${convertToNumberFunction(
+                    getOperators(b.inputs.NUM1)
+                  )} - ${convertToNumberFunction(
+                    getOperators(b.inputs.NUM2)
+                  )})`;
                 }
                 if (b.opcode == "operator_mathop") {
-    const operator = b.fields.OPERATOR[0].toLowerCase();
-    const numCode = getOperators(b.inputs.NUM); // The code for the input number
+                  const operator = b.fields.OPERATOR[0].toLowerCase();
+                  const numCode = getOperators(b.inputs.NUM); // The code for the input number
 
-    let mathFuncCode;
-    
-    // NOTE: 'cast.toNumber()' is used to enforce Scratch's number coercion rules on the input!
-    const castedNumCode = `cast.toNumber(${numCode})`; 
+                  let mathFuncCode;
 
-    switch (operator) {
-        case "abs":
-            mathFuncCode = `Math.abs(${castedNumCode})`;
-            break;
-        case "floor":
-            mathFuncCode = `Math.floor(${castedNumCode})`;
-            break;
-        case "sin":
-            mathFuncCode = `Math.sin((Math.PI * ${castedNumCode}) / 180).toFixed(10)`;
-            break;
-	case "cos":
-            mathFuncCode = `Math.cos((Math.PI * ${castedNumCode}) / 180).toFixed(10)`;
-            break;
-	case "cos":
-            mathFuncCode = `Math.cos((Math.PI * ${castedNumCode}) / 180).toFixed(10)`;
-            break;
-	case "tan":
-            mathFuncCode = `sprite.tan(${castedNumCode})`;
-            break;
-	case "asin":
-            mathFuncCode = `((Math.asin(${castedNumCode}) * 180) / Math.PI)`;
-            break;
-	case "acos":
-            mathFuncCode = `((Math.acos(${castedNumCode}) * 180) / Math.PI)`;
-            break;
-	case "atan":
-            mathFuncCode = `((Math.atan(${castedNumCode}) * 180) / Math.PI)`;
-            break;
-	case "ln":
-	    mathFuncCode = `Math.log(${castedNumCode})`;
-            break;
-	case "log":
-	    mathFuncCode = `Math.log(${castedNumCode}) / Math.LN10`;
-            break;
-	case "e ^":
-	    mathFuncCode = `Math.exp(${castedNumCode})`;
-            break;
-	case "10 ^":
-	    mathFuncCode = `Math.pow(10, ${castedNumCode})`;
-            break;
-        default:
-            mathFuncCode = `0`; 
-            break;
-    }
-    addedto += mathFuncCode;
-}
+                  // NOTE: 'cast.toNumber()' is used to enforce Scratch's number coercion rules on the input!
+                  const castedNumCode = convertToNumberFunction(numCode);
+
+                  switch (operator) {
+                    case "abs":
+                      mathFuncCode = `Math.abs(${castedNumCode})`;
+                      break;
+                    case "floor":
+                      mathFuncCode = `Math.floor(${castedNumCode})`;
+                      break;
+                    case "sin":
+                      mathFuncCode = `Math.sin((Math.PI * ${castedNumCode}) / 180).toFixed(10)`;
+                      break;
+                    case "cos":
+                      mathFuncCode = `Math.cos((Math.PI * ${castedNumCode}) / 180).toFixed(10)`;
+                      break;
+                    case "cos":
+                      mathFuncCode = `Math.cos((Math.PI * ${castedNumCode}) / 180).toFixed(10)`;
+                      break;
+                    case "tan":
+                      mathFuncCode = `sprite.tan(${castedNumCode})`;
+                      break;
+                    case "asin":
+                      mathFuncCode = `((Math.asin(${castedNumCode}) * 180) / Math.PI)`;
+                      break;
+                    case "acos":
+                      mathFuncCode = `((Math.acos(${castedNumCode}) * 180) / Math.PI)`;
+                      break;
+                    case "atan":
+                      mathFuncCode = `((Math.atan(${castedNumCode}) * 180) / Math.PI)`;
+                      break;
+                    case "ln":
+                      mathFuncCode = `Math.log(${castedNumCode})`;
+                      break;
+                    case "log":
+                      mathFuncCode = `Math.log(${castedNumCode}) / Math.LN10`;
+                      break;
+                    case "e ^":
+                      mathFuncCode = `Math.exp(${castedNumCode})`;
+                      break;
+                    case "10 ^":
+                      mathFuncCode = `Math.pow(10, ${castedNumCode})`;
+                      break;
+                    default:
+                      mathFuncCode = `0`;
+                      break;
+                  }
+                  addedto += mathFuncCode;
+                }
                 if (b.opcode == "operator_not") {
                   addedto += `booleanNot(${getOperators(
                     b.inputs.OPERAND,
@@ -3456,10 +3698,10 @@
                 }
 
                 if (b.opcode == "motion_yposition") {
-                  addedto += "NumberValue(sprite.y)";
+                  addedto += "sprite.y";
                 }
                 if (b.opcode == "motion_xposition") {
-                  addedto += "NumberValue(sprite.x)";
+                  addedto += "sprite.x";
                 }
                 if (b.opcode == "looks_size") {
                   addedto += "sprite.size";
@@ -3530,7 +3772,7 @@
                   }
                 }
                 if (b.opcode == "sensing_mousedown") {
-                  addedto += "renderer.mouseDown";
+                  addedto += "window.JSIfy.scratchMouseObject.mouse.mouseDown";
                 }
                 if (b.opcode == "motion_direction") {
                   addedto += "getDirection()";
@@ -3974,7 +4216,7 @@
                     getOperators(b.inputs.BROADCAST_INPUT, "''") +
                     ", sinfo)";
                   addScriptStopHandler();
-                  readBlock(s.blocks2[b.next]);
+                  readBlock(s.blocks2[b.next], warp);
                   return;
                 }
                 if (b.opcode == "sound_play") {
@@ -3982,7 +4224,7 @@
                     "\n" +
                     `playSound(${getOperators(b.inputs.SOUND_MENU)}, false)` +
                     "\n";
-                  readBlock(s.blocks2[b.next]);
+                  readBlock(s.blocks2[b.next], warp);
                   return;
                 }
                 if (b.opcode == "sound_playuntildone") {
@@ -3994,7 +4236,7 @@
                     )}, true)` +
                     "\n";
                   addScriptStopHandler();
-                  readBlock(s.blocks2[b.next]);
+                  readBlock(s.blocks2[b.next], warp);
                   return;
                 }
                 if (b.opcode == "event_whenkeypressed") {
@@ -4016,7 +4258,6 @@
                     threadEncodedString +
                     ",sinfo);var warpenabled = false;";
                   generatedCode += "\n" + "try{";
-                  addScriptStopHandler();
                   readBlock(s.blocks2[b.next]);
                   generatedCode += "\n" + "}catch(e){doErrorHandler(e);}";
                   generatedCode += "\n" + "removeScriptInfo(sinfo);";
@@ -4038,7 +4279,6 @@
                     threadEncodedString +
                     ",sinfo);";
                   generatedCode += "\n" + "try{";
-                  addScriptStopHandler();
                   readBlock(s.blocks2[b.next]);
                   generatedCode += "\n" + "}catch(e){doErrorHandler(e);}";
                   generatedCode += "\n" + "removeScriptInfo(sinfo);";
@@ -4065,7 +4305,6 @@
                     messageBlockEncodedString +
                     ",sinfo);var warpenabled = false;sinfo.justReceived = true;setTimeout(() => {sinfo.justReceived = false;},1);";
                   generatedCode += "\n" + "try{";
-                  addScriptStopHandler();
                   readBlock(s.blocks2[b.next]);
                   generatedCode += "\n" + "}catch(e){doErrorHandler(e);}";
                   generatedCode += "\n" + "removeScriptInfo(sinfo);";
@@ -4098,7 +4337,6 @@
                     "\n" +
                     "const sinfo = makeScriptInfo();var warpenabled = false;";
                   generatedCode += "\n" + "try{";
-                  addScriptStopHandler();
                   readBlock(s.blocks2[b.next], false);
                   generatedCode += "\n" + "}catch(e){doErrorHandler(e);}";
                   generatedCode += "\n" + "removeScriptInfo(sinfo);";
@@ -4565,7 +4803,6 @@
                     ";} else {sinfo.customblockname = " +
                     procodeid +
                     ";}sinfo.customblockwarped = warpenabled;sinfo.usewarp = warpenabled;";
-                  addScriptStopHandler();
                   readBlock(s.blocks2[b.next], warped);
                   generatedCode += "\n" + "sprite.removeScriptInfo(sinfo);";
                   generatedCode += "\n}catch(e){sprite.doErrorHandler(e);}};";
@@ -4587,7 +4824,6 @@
                         "\n" +
                         "const sinfo = sprite.makeScriptInfo();\nvar warpenabled = false;";
                     }
-                    addScriptStopHandler();
                     readBlock(s.blocks2[b.next], warp);
                     if (!isheadblock) {
                       generatedCode += "\n" + "sprite.removeScriptInfo(sinfo);";
@@ -4597,9 +4833,6 @@
                   }
                   return;
                 }
-                window.JSIfy.onlog(
-                  "skipping block since its unknown. opcode: " + b.opcode
-                );
                 readBlock(s.blocks2[b.next], warp);
                 return;
               }
@@ -4647,6 +4880,8 @@
       },
       loadProject: async function (arrayBuffer) {
         try {
+          pixiApp.stage.removeChildren();
+          pixiApp.stage.addChild(JSIfy.pixiPenSprite);
           this.cloudVariables = [];
           var collisionCanvas = document.createElement("canvas");
           var collisionContext = collisionCanvas.getContext("2d");
@@ -5043,6 +5278,7 @@
                   number: cindex,
                   mask: mask,
                   renderimage: img,
+                  isBitmap: costumeType !== "image/svg+xml",
                 };
 
                 cindex += 1;
@@ -5084,14 +5320,14 @@
               "Generating JavaScript for sprite " + target.name + "..."
             );
             sprite.code = this.genCode(sprite, this.variables); //Generate the code from the scratch 3.0 project json.
-	    try{
+            try {
               var result = await Terser.minify(sprite.code, terserOptions);
               if (!result.error) {
                 sprite.code = result.code;
               }
-            }catch(e){
+            } catch (e) {
               console.error(e);
-              window.alert("Terser error: "+e);
+              window.alert("Terser error: " + e);
             }
             try {
               if (window.JSIfy.debugLogs) {
@@ -5099,7 +5335,9 @@
                   `Sprite code for ${sprite.name}:` + "\n" + sprite.code
                 );
               }
-              sprite.runfunct = eval("(async function (sprite){"+sprite.code+"})"); // Attempt to execute the sprite code
+              sprite.runfunct = eval(
+                "(async function (sprite){" + sprite.code + "})"
+              ); // Attempt to execute the sprite code
               sprite.runfunct(sprite);
               this.onlog("Successfully started code for " + target.name + "!");
             } catch (e) {
@@ -5112,6 +5350,7 @@
               console.error(e);
             }
             this.sprites.push(sprite);
+            pixiApp.stage.addChild(sprite.pixiSprite);
           });
           this.onlog(
             "Project sprites finished basic initilization, waiting for assets to finish loading."
@@ -5127,8 +5366,9 @@
       },
       highQualitySVG: true,
       running: true,
+      pixiApp,
       checkWhenClickedHats: function () {
-        if (renderer.mouseDown) {
+        if (scratchMouseObject.mouse.mouseDown) {
           if (!_lastMouseDownState) {
             var sprs = [];
             for (var spr of window.JSIfy.sprites) {
@@ -5166,127 +5406,43 @@
           _lastMouseDownState = false;
         }
       },
-      renderStage: function () {
-        var atualSprites = [];
-        var speechBubbles = [];
-        function drawSprite(spr, stageMode) {
-          if (!stageMode) {
-            if (spr.isStage) {
-              return false;
-            }
-          }
-          var distanceX = spr.x - spr.rsprite.x;
-          var distanceY = spr.y * -1 - spr.rsprite.y;
-          var distanceDirection = spr.direction - spr.rsprite.direction;
-          var interplotateAmount = 1;
-          spr.rsprite.x = spr.x;
-          spr.rsprite.y = spr.y * -1;
-          if (isNaN(spr.x)) {
-            //window.JSIfy.onlog(`Sprite has NAN x value`);
-          }
-          if (isNaN(spr.y)) {
-            //window.JSIfy.onlog(`Sprite has NAN y value`);
-          }
-          spr.rsprite.direction = spr.direction;
-          spr.rsprite.flipH = false;
-          if (spr.rotationStyle == "left-right") {
-            spr.rsprite.direction = 90;
-            if (spr.getDirection() > 0) {
-              spr.rsprite.flipH = false;
-            } else {
-              spr.rsprite.flipH = true;
-            }
-          }
-          if (spr.rotationStyle == "don't rotate") {
-            spr.rsprite.direction = 90;
-          }
-          var cosimage = spr.costume.renderimage;
-          var costume = spr.costume;
+      stageScale: 1,
+      upscaleStage: function (scale) {
+        var VirtualWidth = 480;
+        var VirtualHeight = 360;
+        var gameContainer = pixiApp.stage;
 
-          spr.rsprite.image = spr.updateSpriteEffects();
-          spr.rsprite.trs = 1;
-          spr.rsprite.trs -= spr.effects.ghost / 100;
-          var r = 1;
-          if (spr.costume.res) {
-            r = spr.costume.res;
-          }
-          spr.rsprite.width =
-            (costume.image.width * (spr.size / 100)) / spr.costume.res;
-          spr.rsprite.height =
-            (costume.image.height * (spr.size / 100)) / spr.costume.res;
-          spr.rsprite.rotateOffsetX =
-            (spr.costume.offsetx / 1) * (spr.size / 100);
-          spr.rsprite.rotateOffsetY =
-            (spr.costume.offsety / 1) * (spr.size / 100) * 1;
-          spr.rsprite.sclayer = spr.layer;
-          spr.rsprite.x = Math.round(spr.rsprite.x);
-          spr.rsprite.y = Math.round(spr.rsprite.y);
-          spr.rsprite.direction = Math.round(spr.rsprite.direction);
-          if (stageMode) {
-            return spr.rsprite;
-          }
-          if (spr.showing) {
-            atualSprites.push(spr.rsprite);
-            if (spr.speechBubble) {
-              var canvas2 = spr.speechBubble;
-              var speech = spr.rspriteSpeech;
-              var bubbleScale = 1;
-              speech.width = canvas2.width * bubbleScale - 10;
-              speech.height = canvas2.height * bubbleScale - 10;
-              speech.image = canvas2;
-              speech.x = spr.rsprite.x + spr.rsprite.width / 2;
-              speech.y = spr.rsprite.y - spr.rsprite.height / 2;
-              speech.y -= speech.height;
-              speech.y += 10;
-              speech.direction = 90;
-              speech.scale = 1;
-              speech.sclayer = spr.rsprite.sclayer;
-              speech.trs = 1;
-              speech.rotateOffsetX = 0;
-              speech.rotateOffsetY = 0;
-              speechBubbles.push(speech);
+        pixiApp.renderer.resize(VirtualWidth * scale, VirtualHeight * scale);
+        pixiApp.renderer.resolution = 1;
+        this.stageScale = scale;
+        //pixiApp.stage.scale.set(scale);
+      },
+      renderStage: function () {
+        try {
+          window.JSIfy.pixiPenSprite.texture = PIXI.Texture.from(penCanvas);
+          window.JSIfy.pixiPenSprite.width = 480;
+          window.JSIfy.pixiPenSprite.height = 360;
+          var allSprites = [];
+          for (var sprite of this.sprites) {
+            allSprites.push(sprite);
+            for (var clone of sprite.clones) {
+              allSprites.push(clone);
             }
           }
-        }
-        for (var spr of window.JSIfy.sprites) {
-          /*if (isNaN(spr.x)) {
-                    console.warn("Found sprite with NAN x position. Setting it to 0.");
-                    spr.x = 0;
-                    }
-                    if (isNaN(spr.y)) {
-                    //console.warn("Found sprite with NAN y position. Setting it to 0.");
-                    //spr.y = 0;
-                    }
-                    if (isNaN(spr.direction)) {
-                    console.warn("Found sprite with NAN direction. Setting it to 90.");
-                    spr.direction = 90;
-                    }*/
-          try {
-            drawSprite(spr);
-          } catch (e) {
-            console.warn(`Draw sprite error! `, e);
-          }
-          for (var clone of spr.clones) {
-            try {
-              drawSprite(clone);
-            } catch (e) {
-              console.warn(`Draw sprite error! `, e);
+          for (var sprite of allSprites) {
+            if (sprite.showing) {
+              sprite.adjustPixiSprite();
+            }
+            sprite.pixiSprite.visible = !!sprite.showing;
+            var layer = sprite.layer;
+            if (sprite._lastLayer !== layer) {
+              sprite.pixiSprite.zIndex = layer;
+              sprite._lastLayer = layer;
             }
           }
+        } catch (e) {
+          console.error("Render error: ", e);
         }
-        atualSprites = atualSprites.sort((a, b) => {
-          return a.sclayer - b.sclayer;
-        });
-        var stagespr = undefined;
-        for (var spr of window.JSIfy.sprites) {
-          if (spr.isStage) {
-            stagespr = drawSprite(spr, true);
-          }
-        }
-        for (var bubble of speechBubbles) {
-          atualSprites.push(bubble);
-        }
-        renderer.drawSprites([stagespr, penSprite].concat(atualSprites)); //The pen is above the stage when drawn.
       },
       updateTimer: function () {
         this.curTime = (Date.now() - this.startTime) / 1000;
@@ -5311,9 +5467,11 @@
         },
       },
       messageList: [],
+      scratchMouseObject: scratchMouseObject,
+      pixiPenSprite: new PIXI.Sprite(PIXI.Texture.EMPTY),
     };
     var _lastMouseDownState = false;
-    window.JSIfy.frameRate = 32;
+    window.JSIfy.frameRate = 35;
     var then = Date.now();
     setInterval(() => {
       var time = 1000 / window.JSIfy.frameRate;
@@ -5329,19 +5487,6 @@
         }
 
         then = now;
-      }
-    }, 1);
-    setInterval(() => {
-      if (!window.JSIfy.keysPressed["Control"]) {
-        if (window.JSIfy.keysPressed["Alt"]) {
-          var i = 0;
-          while (i < 1000) {
-            window.JSIfy.step();
-            i += 1;
-          }
-        } else {
-          window.JSIfy.step();
-        }
       }
     }, 1);
   } catch (e) {
