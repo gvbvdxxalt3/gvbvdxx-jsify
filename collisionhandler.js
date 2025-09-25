@@ -1,5 +1,4 @@
 (function () {
-  
   class CollisionSprite {
     constructor(
       imageData,
@@ -14,200 +13,277 @@
       flipY = false,
       collisionTolerance = 0
     ) {
-      this.imageData = imageData; // The image data for collision detection (RGBA)
-      this.x = x; // Sprite position (global)
-      this.y = y;
-      this.scaleX = scaleX; // Horizontal scaling factor
-      this.scaleY = scaleY; // Vertical scaling factor
-      this.angle = angle; // Rotation angle in degrees
-      this.centerX = centerX; // The center of rotation (relative to the image)
-      this.centerY = centerY;
-      this.flipX = flipX; // Whether to flip horizontally
-      this.flipY = flipY; // Whether to flip vertically
-      this.collisionTolerance = collisionTolerance; // Tolerance for small misalignments
-      this.generateAlphaList(); //Generate a precomputed list of zero and ones for if there is collision on specific pixels.
+      this.imageData = imageData;
+      this._x = x;
+      this._y = y;
+      this._scaleX = scaleX;
+      this._scaleY = scaleY;
+      this._angle = angle;
+      this._centerX = centerX;
+      this._centerY = centerY;
+      this._flipX = flipX;
+      this._flipY = flipY;
+      this.collisionTolerance = collisionTolerance;
+
+      this.transformMatrix = new Float32Array(6);
+      this._invRotationCos = 1;
+      this._invRotationSin = 0;
+      // --- NEW CACHE FOR INCREMENTAL CALCULATION ---
+      this._dx_lx = 1;
+      this._dx_ly = 0;
+      this.isTransformDirty = true;
+
+      this.generateAlphaList();
     }
-    
-    generateAlphaList() {
-      var data = this.imageData.data;
-      this.alphaList = new Uint32Array(data.length/4);
-      var i = 0;
-      var i2 = 0;
-      while (i < data.length) {
-        i += 3;
-        var alpha = data[i];
-        if (alpha > 0) {
-          this.alphaList[i2] = 1;
-        } else {
-          this.alphaList[i2] = 0;
-        }
-        i += 1;
-        i2 += 1;
+
+    // Getters and Setters remain the same
+    get x() {
+      return this._x;
+    }
+    set x(value) {
+      if (this._x !== value) {
+        this._x = value;
+        this.isTransformDirty = true;
+      }
+    }
+    get y() {
+      return this._y;
+    }
+    set y(value) {
+      if (this._y !== value) {
+        this._y = value;
+        this.isTransformDirty = true;
+      }
+    }
+    get scaleX() {
+      return this._scaleX;
+    }
+    set scaleX(value) {
+      if (this._scaleX !== value) {
+        this._scaleX = value;
+        this.isTransformDirty = true;
+      }
+    }
+    get scaleY() {
+      return this._scaleY;
+    }
+    set scaleY(value) {
+      if (this._scaleY !== value) {
+        this._scaleY = value;
+        this.isTransformDirty = true;
+      }
+    }
+    get angle() {
+      return this._angle;
+    }
+    set angle(value) {
+      if (this._angle !== value) {
+        this._angle = value;
+        this.isTransformDirty = true;
+      }
+    }
+    get centerX() {
+      return this._centerX;
+    }
+    set centerX(value) {
+      if (this._centerX !== value) {
+        this._centerX = value;
+        this.isTransformDirty = true;
+      }
+    }
+    get centerY() {
+      return this._centerY;
+    }
+    set centerY(value) {
+      if (this._centerY !== value) {
+        this._centerY = value;
+        this.isTransformDirty = true;
+      }
+    }
+    get flipX() {
+      return this._flipX;
+    }
+    set flipX(value) {
+      if (this._flipX !== value) {
+        this._flipX = value;
+        this.isTransformDirty = true;
+      }
+    }
+    get flipY() {
+      return this._flipY;
+    }
+    set flipY(value) {
+      if (this._flipY !== value) {
+        this._flipY = value;
+        this.isTransformDirty = true;
       }
     }
 
-    // Adjust center point dynamically for flipping
+    ensureTransformIsUpdated() {
+      if (this.isTransformDirty) this._updateTransformCache();
+    }
+
+    _updateTransformCache() {
+      const { _scaleX: sX, _scaleY: sY, _angle: ang } = this;
+      const rad = (ang * Math.PI) / 180,
+        cos = Math.cos(rad),
+        sin = Math.sin(rad);
+
+      const a = cos * sX,
+        b = sin * sX,
+        c = -sin * sY,
+        d = cos * sY;
+      this.transformMatrix.set([a, b, c, d]);
+
+      const invRad = (-ang * Math.PI) / 180;
+      this._invRotationCos = Math.cos(invRad);
+      this._invRotationSin = Math.sin(invRad);
+
+      // --- NEW: Cache the incremental step values ---
+      // This pre-calculates how much local coordinates change for each
+      // single-pixel step in the world coordinates.
+      if (Math.abs(sX) > 1e-6) {
+        this._dx_lx = this._invRotationCos / sX;
+      }
+      if (Math.abs(sY) > 1e-6) {
+        this._dx_ly = this._invRotationSin / sY;
+      }
+
+      this.isTransformDirty = false;
+    }
+
+    generateAlphaList() {
+      const data = this.imageData.data;
+      this.alphaList = new Uint32Array(data.length / 4);
+      for (let i = 0, i2 = 0; i < data.length; i += 4, i2++) {
+        if (data[i + 3] > 0) this.alphaList[i2] = 1;
+      }
+    }
+
     getAdjustedCenter() {
-      const { centerX, centerY, flipX, flipY, imageData } = this;
-      const { width, height } = imageData;
-
+      const {
+        _centerX: cX,
+        _centerY: cY,
+        _flipX: fX,
+        _flipY: fY,
+        imageData: { width, height },
+      } = this;
       return {
-        adjustedCenterX: flipX ? width - centerX : centerX,
-        adjustedCenterY: flipY ? height - centerY : centerY,
+        adjustedCenterX: fX ? width - cX : cX,
+        adjustedCenterY: fY ? height - cY : cY,
       };
     }
 
-    // Map local coordinates to flipped image coordinates
-    getFlippedCoordinates(localX, localY) {
-      const { flipX, flipY, imageData } = this;
-      const { width, height } = imageData;
-
-      return {
-        x: flipX ? width - 1 - localX : localX,
-        y: flipY ? height - 1 - localY : localY,
-      };
+    transformPoint(lX, lY) {
+      this.ensureTransformIsUpdated();
+      const [a, b, c, d] = this.transformMatrix;
+      const { _x: x, _y: y } = this;
+      const { adjustedCenterX: acX, adjustedCenterY: acY } =
+        this.getAdjustedCenter();
+      const tX = lX - acX,
+        tY = lY - acY;
+      return { x: tX * a + tY * c + x, y: tX * b + tY * d + y };
     }
 
-    // Transform a point (local coordinates) considering scaling, rotation, flipping, and translation
-    transformPoint(localX, localY) {
-      const { x, y, scalex, scaley, angle } = this;
-      const { adjustedCenterX, adjustedCenterY } = this.getAdjustedCenter();
-
-      // Translate the point relative to the adjusted center
-      const translatedX = (localX - adjustedCenterX) * scalex;
-      const translatedY = (localY - adjustedCenterY) * scaley;
-
-      // Convert the rotation angle to radians
-      const radians = (angle * Math.PI) / 180;
-      const cos = Math.cos(radians);
-      const sin = Math.sin(radians);
-
-      // Apply rotation
-      const rotatedX = translatedX * cos - translatedY * sin;
-      const rotatedY = translatedX * sin + translatedY * cos;
-
-      // Translate back to the global position
-      return { x: rotatedX + x, y: rotatedY + y };
-    }
-
-    // Map a world point to local coordinates for this sprite
     worldToLocal(worldX, worldY) {
-      const { x, y, scalex, scaley, angle } = this;
+      this.ensureTransformIsUpdated();
+      const { _x: x, _y: y, _scaleX: scaleX, _scaleY: scaleY } = this;
       const { adjustedCenterX, adjustedCenterY } = this.getAdjustedCenter();
-
-      // Translate world coordinates to be relative to the sprite position
-      const translatedX = worldX - x;
-      const translatedY = worldY - y;
-
-      // Apply reverse rotation
-      const radians = (-angle * Math.PI) / 180;
-      const cos = Math.cos(radians);
-      const sin = Math.sin(radians);
-
+      const translatedX = worldX - x,
+        translatedY = worldY - y;
+      const cos = this._invRotationCos,
+        sin = this._invRotationSin;
       const rotatedX = translatedX * cos - translatedY * sin;
       const rotatedY = translatedX * sin + translatedY * cos;
-
-      // Adjust for scaling and flipping
-      const localX = rotatedX / scalex + adjustedCenterX;
-      const localY = rotatedY / scaley + adjustedCenterY;
-
+      const localX = rotatedX / scaleX + adjustedCenterX;
+      const localY = rotatedY / scaleY + adjustedCenterY;
       return { x: localX, y: localY };
     }
 
-    // Check if a pixel is opaque in the image data
-    isPixelOpaque(localX, localY) {
-      const { imageData } = this;
-      const { width, height, data } = imageData;
-
-      const { x: flippedX, y: flippedY } = this.getFlippedCoordinates(
-        Math.round(localX),
-        Math.round(localY)
-      );
-
-      if (
-        flippedX < 0 ||
-        flippedY < 0 ||
-        flippedX >= width ||
-        flippedY >= height
-      ) {
-        return false;
-      }
-
-      const index = (flippedY * width + flippedX);
-      return this.alphaList[index];
+    getFlippedCoordinates(lX, lY) {
+      const {
+        _flipX: fX,
+        _flipY: fY,
+        imageData: { width, height },
+      } = this;
+      return { x: fX ? width - 1 - lX : lX, y: fY ? height - 1 - lY : lY };
     }
 
-    // Calculate the bounding box (AABB) of the sprite
-    getBoundingBox() {
-      const { imageData } = this;
-      const { width, height } = imageData;
+    isPixelOpaque(lX, lY) {
+      const { width, height } = this.imageData;
+      const { x: fX, y: fY } = this.getFlippedCoordinates(
+        Math.round(lX),
+        Math.round(lY)
+      );
+      if (fX < 0 || fY < 0 || fX >= width || fY >= height) return false;
+      return this.alphaList[fY * width + fX] === 1;
+    }
 
-      const corners = [
+    getBoundingBox() {
+      this.ensureTransformIsUpdated();
+      const { width, height } = this.imageData;
+      const cs = [
         { x: 0, y: 0 },
         { x: width, y: 0 },
         { x: 0, y: height },
         { x: width, y: height },
       ];
-
-      // Transform each corner and find the bounding box
-      const transformedCorners = corners.map(({ x, y }) =>
-        this.transformPoint(x, y)
-      );
-
-      const minX = Math.min(...transformedCorners.map((p) => p.x));
-      const maxX = Math.max(...transformedCorners.map((p) => p.x));
-      const minY = Math.min(...transformedCorners.map((p) => p.y));
-      const maxY = Math.max(...transformedCorners.map((p) => p.y));
-
-      return { minX, maxX, minY, maxY };
+      const tCs = cs.map(({ x, y }) => this.transformPoint(x, y));
+      return {
+        minX: Math.min(...tCs.map((p) => p.x)),
+        maxX: Math.max(...tCs.map((p) => p.x)),
+        minY: Math.min(...tCs.map((p) => p.y)),
+        maxY: Math.max(...tCs.map((p) => p.y)),
+      };
     }
 
-    // Pixel-perfect collision detection
+    // --- NEW: ULTRA-OPTIMIZED collisionTest ---
     collisionTest(sprite) {
-      const box1 = this.getBoundingBox();
-      const box2 = sprite.getBoundingBox();
+      this.ensureTransformIsUpdated();
+      sprite.ensureTransformIsUpdated();
+      const b1 = this.getBoundingBox(),
+        b2 = sprite.getBoundingBox();
+      const oX1 = Math.max(b1.minX, b2.minX),
+        oX2 = Math.min(b1.maxX, b2.maxX);
+      const oY1 = Math.max(b1.minY, b2.minY),
+        oY2 = Math.min(b1.maxY, b2.maxY);
+      if (oX2 < oX1 || oY2 < oY1) return false;
 
-      const overlapMinX = Math.max(box1.minX, box2.minX);
-      const overlapMaxX = Math.min(box1.maxX, box2.maxX);
-      const overlapMinY = Math.max(box1.minY, box2.minY);
-      const overlapMaxY = Math.min(box1.maxY, box2.maxY);
+      const tolerance = this.collisionTolerance;
+      const startX = oX1 - tolerance;
+      const endX = oX2 + tolerance;
+      const startY = oY1 - tolerance;
+      const endY = oY2 + tolerance;
 
-      if (overlapMaxX <= overlapMinX || overlapMaxY <= overlapMinY) {
-        return false;
-      }
-      
-      if (overlapMaxX == overlapMinX || overlapMaxY == overlapMinY) {
-        return false;
-      }
+      // Cache the incremental step values for both sprites
+      const this_dx_lx = this._dx_lx;
+      const this_dx_ly = this._dx_ly;
+      const sprite_dx_lx = sprite._dx_lx;
+      const sprite_dx_ly = sprite._dx_ly;
 
-      // Apply tolerance to avoid small misalignments
-      const toleranceX = this.collisionTolerance;
-      const toleranceY = this.collisionTolerance;
-      for (
-        let y = overlapMinY - toleranceY;
-        y <= overlapMaxY + toleranceY;
-        y++
-      ) {
-        for (
-          let x = overlapMinX - toleranceX;
-          x <= overlapMaxX + toleranceX;
-          x++
-        ) {
-          const localThis = this.worldToLocal(x, y);
-          const localOther = sprite.worldToLocal(x, y);
+      for (let y = startY; y <= endY; y++) {
+        // Calculate the starting local coordinates for this row ONCE
+        let localThis = this.worldToLocal(startX, y);
+        let localOther = sprite.worldToLocal(startX, y);
 
-          const pixelThis = this.isPixelOpaque(localThis.x, localThis.y);
-          const pixelOther = sprite.isPixelOpaque(localOther.x, localOther.y);
-
-          if (pixelThis && pixelOther) {
+        for (let x = startX; x <= endX; x++) {
+          if (
+            this.isPixelOpaque(localThis.x, localThis.y) &&
+            sprite.isPixelOpaque(localOther.x, localOther.y)
+          ) {
             return true;
           }
+          // --- INCREMENTAL UPDATE ---
+          // Instead of a full recalculation, just add the pre-calculated step.
+          // This is much, much faster.
+          localThis.x += this_dx_lx;
+          localThis.y += this_dx_ly;
+          localOther.x += sprite_dx_lx;
+          localOther.y += sprite_dx_ly;
         }
       }
-
       return false;
     }
   }
-
   window.CollisionSprite = CollisionSprite;
 })();
