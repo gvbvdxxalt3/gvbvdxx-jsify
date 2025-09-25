@@ -1343,7 +1343,8 @@
             this.costume.texture = PIXI.Texture.from(this.costume.image);
             this.costume.renderimage = this.costume.image;
             this.costume.upscale = 1;
-            this.costume.texture.baseTexture.scaleMode =
+
+            this.costume.texture.baseTexture.scaleMode = //Bitmap sprites appear crisp on scratch.
               PIXI.SCALE_MODES.NEAREST;
             return;
           }
@@ -1390,15 +1391,11 @@
             rImage = canvas;
             this.costume.renderimage = rImage;
             this.costume.texture = PIXI.Texture.from(rImage);
-            this.costume.texture.baseTexture.scaleMode =
-              PIXI.SCALE_MODES.NEAREST;
           }
 
           if (!this.costume.texture) {
             this.costume.upscale = 1;
             this.costume.texture = PIXI.Texture.from(ogImage);
-            this.costume.texture.baseTexture.scaleMode =
-              PIXI.SCALE_MODES.NEAREST;
           }
         }
 
