@@ -1342,6 +1342,7 @@
           if (this.costume.isBitmap) {
             this.costume.texture = PIXI.Texture.from(this.costume.image);
             this.costume.renderimage = this.costume.image;
+            this.costume.upscale = 1;
             this.costume.texture.baseTexture.scaleMode =
               PIXI.SCALE_MODES.NEAREST;
             return;
